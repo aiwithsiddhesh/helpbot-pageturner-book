@@ -13,10 +13,10 @@ class HelpBot:
         self._client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
         self._settings = settings
     
-    def chat(self, user_input: str) -> ChatResult:
+    def chat(self, messages: list) -> ChatResult:
         response = self._client.messages.create(
             model=self._settings.model,
-            messages=[{"role": "user", "content": user_input}],
+            messages=messages,
             max_tokens=self._settings.max_tokens
         )
         return ChatResult(
