@@ -1,10 +1,8 @@
-from dataclasses import dataclass
-
+from pydantic import BaseModel
 import anthropic
 from helpbot import Settings
 
-@dataclass
-class ChatResult:
+class ChatResult(BaseModel):
     text: str
     input_tokens: int
     output_tokens: int

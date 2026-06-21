@@ -1,12 +1,13 @@
 import sys
 from helpbot import Settings, HelpBot
+from pydantic import ValidationError
 
 
 def main() -> None:
     try:
-        settings = Settings.from_env()
-    except EnvironmentError as exc:
-        sys.exit(str(exc))
+        settings = Settings()
+    except ValidationError:
+        sys.exit("Error: ANTHROPIC_API_KEY is not set. Copy .env.example to .env and add your key.")
     
     bot = HelpBot(settings = settings)
     print("Welcome to HelpBot! Type 'exit' to quit.")
