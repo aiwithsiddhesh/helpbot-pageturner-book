@@ -15,12 +15,27 @@ def main() -> None:
     print("Welcome to HelpBot! Type 'exit' to quit.")
     while True:
         user_input = input("You: ").strip()
+
         if not user_input:
             print("Please enter a valid question.")
             continue
         if user_input.lower() == "exit":
             print("Goodbye!")
             break
+        if user_input.startswith("/temp "):
+            try:
+                new_temp = float(user_input.split()[1])
+                settings = Settings(
+                    anthropic_api_key=settings.anthropic_api_key,
+                    model=settings.model,
+                    max_tokens=settings.max_tokens,
+                    temperature=new_temp
+                )
+                bot = HelpBot(settings)
+                print(f"[Temperature set to {new_temp}]\n")
+            except (ValueError, IndexError):
+                print("[Valid Usage: /temp 0.0 to 1.0]\n")
+            continue
         
         history.append({"role": "user", "content": user_input})
         result = bot.chat(history)

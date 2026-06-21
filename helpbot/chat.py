@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 import anthropic
-from helpbot import Settings
+from helpbot import Settings, SYSTEM_PROMPT
 
 class ChatResult(BaseModel):
     text: str
@@ -17,7 +17,9 @@ class HelpBot:
         response = self._client.messages.create(
             model=self._settings.model,
             messages=messages,
-            max_tokens=self._settings.max_tokens
+            max_tokens=self._settings.max_tokens,
+            system=SYSTEM_PROMPT,
+            temperature=self._settings.temperature,
         )
         return ChatResult(
             text=response.content[0].text,
