@@ -1,8 +1,7 @@
 import sys
-from helpbot import Settings, HelpBot
 from pydantic import ValidationError
 
-from helpbot import Conversation
+from helpbot import Settings, HelpBot, Conversation
 
 
 def main() -> None:
@@ -40,12 +39,9 @@ def main() -> None:
             continue
         
         conversation.add_user(user_input)
-        result = bot.chat(conversation)
-        conversation.add_assistant(result.text)
-
-        print(f"HelpBot: {result.text}")
+        print("HelpBot: ", end="", flush=True)
+        result = bot.chat_streaming(conversation)
         print(f"(Input Tokens: {result.input_tokens}, Output Tokens: {result.output_tokens}, Total Tokens: {result.total_tokens})\n")
-
 
 
 if __name__ == "__main__":
