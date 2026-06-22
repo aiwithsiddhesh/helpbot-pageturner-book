@@ -7,7 +7,6 @@ class Settings(BaseSettings):
     anthropic_api_key: str
     model: str = "claude-haiku-4-5"
     max_tokens: int = Field(default=1000, gt=0)
-    temperature: float = Field(default=0.1, ge=0.0, le=1.0)
 
 
 SYSTEM_PROMPT = """You are HelpBot, the friendly customer support assistant for PageTurner Books — \

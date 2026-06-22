@@ -1,4 +1,5 @@
 import sys
+import anthropic
 from pydantic import ValidationError
 
 from helpbot import Settings, HelpBot, Conversation, detect_intent, INTENT_EXTRACTOR_MAP
@@ -14,52 +15,76 @@ _INTENT_OPENERS: dict[str, str] = {
 }
 
 
-def main() -> None:
+def _bootstrap() -> tuple[anthropic.Anthropic, HelpBot, Conversation]:
     try:
         settings = Settings()
     except ValidationError:
         sys.exit("Error: ANTHROPIC_API_KEY is not set. Copy .env.example to .env and add your key.")
-    
-    bot = HelpBot(settings = settings)
-    conversation = Conversation()
+    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    bot = HelpBot(settings=settings, client=client)
+    return client, bot, Conversation()
+
+
+def _handle_command(user_input: str, temperature: float) -> tuple[float | None, bool]:
+    """Handle slash commands and control inputs. Returns (new_temperature, should_exit)."""
+    if not user_input:
+        print("Please enter a valid question.")
+        return temperature, False
+    if user_input.lower() == "exit":
+        print("Goodbye!")
+        return temperature, True
+    if user_input.startswith("/temp "):
+        try:
+            new_temp = float(user_input.split()[1])
+            if not 0.0 <= new_temp <= 1.0:
+                raise ValueError
+            print(f"[Temperature set to {new_temp}]\n")
+            return new_temp, False
+        except (ValueError, IndexError):
+            print("[Valid Usage: /temp 0.0 to 1.0]\n")
+        return temperature, False
+    return None, False  # None signals: not a command, proceed to chat
+
+
+def _handle_message(
+    user_input: str,
+    bot: HelpBot,
+    conversation: Conversation,
+    settings: Settings,
+    client: anthropic.Anthropic,
+    temperature: float,
+) -> None:
+    intent = detect_intent(user_input, settings, client)
+    extractor = INTENT_EXTRACTOR_MAP.get(intent)
+    if extractor:
+        extracted = extractor(user_input, settings, client)
+        print(f"[Intent: {intent}] {extracted}")
+
+    conversation.add_user(user_input)
+    print("HelpBot: ", end="", flush=True)
+    opener = _INTENT_OPENERS.get(intent, "")
+    result = bot.chat_streaming(conversation, opener=opener, temperature=temperature)
+    print(f"(Input Tokens: {result.input_tokens}, Output Tokens: {result.output_tokens}, Total Tokens: {result.total_tokens})\n")
+
+
+def main() -> None:
+    client, bot, conversation = _bootstrap()
+    # settings is needed by detect_intent / extractors — re-read from bot to avoid a second Settings()
+    settings = bot._settings
+    temperature: float = 0.1
 
     print("Welcome to HelpBot! Type 'exit' to quit.")
     while True:
         user_input = input("You: ").strip()
 
-        if not user_input:
-            print("Please enter a valid question.")
-            continue
-        if user_input.lower() == "exit":
-            print("Goodbye!")
+        new_temp, should_exit = _handle_command(user_input, temperature)
+        if should_exit:
             break
-        if user_input.startswith("/temp "):
-            try:
-                new_temp = float(user_input.split()[1])
-                settings = Settings(
-                    anthropic_api_key=settings.anthropic_api_key,
-                    model=settings.model,
-                    max_tokens=settings.max_tokens,
-                    temperature=new_temp
-                )
-                bot = HelpBot(settings)
-                print(f"[Temperature set to {new_temp}]\n")
-            except (ValueError, IndexError):
-                print("[Valid Usage: /temp 0.0 to 1.0]\n")
+        if new_temp is not None:
+            temperature = new_temp
             continue
 
-        # Detect intent and extract structured fields before responding
-        intent = detect_intent(user_input, settings)
-        extractor = INTENT_EXTRACTOR_MAP.get(intent)
-        if extractor:
-            extracted = extractor(user_input, settings)
-            print(f"[Intent: {intent}] {extracted}")
-        
-        conversation.add_user(user_input)
-        print("HelpBot: ", end="", flush=True)
-        opener = _INTENT_OPENERS.get(intent, "")
-        result = bot.chat_streaming(conversation, opener=opener)
-        print(f"(Input Tokens: {result.input_tokens}, Output Tokens: {result.output_tokens}, Total Tokens: {result.total_tokens})\n")
+        _handle_message(user_input, bot, conversation, settings, client, temperature)
 
 
 if __name__ == "__main__":

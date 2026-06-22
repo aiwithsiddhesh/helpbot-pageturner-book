@@ -12,11 +12,11 @@ class ChatResult(BaseModel):
 
 
 class HelpBot:
-    def __init__(self, settings: Settings):
-        self._client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    def __init__(self, settings: Settings, client: anthropic.Anthropic):
+        self._client = client
         self._settings = settings
     
-    def chat(self, conversation: Conversation) -> ChatResult:
+    def chat(self, conversation: Conversation, temperature: float = 0.1) -> ChatResult:
         # Blocking call — waits for the full response before returning.
         # Not used by main.py after Module 3 (chat_streaming() takes over),
         # but kept here deliberately for two learning reasons:
@@ -31,7 +31,7 @@ class HelpBot:
             messages=conversation.to_api_format(),
             max_tokens=self._settings.max_tokens,
             system=SYSTEM_PROMPT,
-            temperature=self._settings.temperature,
+            temperature=temperature,
         )
         return ChatResult(
             text=response.content[0].text,
@@ -40,7 +40,7 @@ class HelpBot:
             total_tokens=response.usage.input_tokens + response.usage.output_tokens
         )
     
-    def chat_streaming(self, conversation: Conversation, opener: str = "") -> ChatResult:
+    def chat_streaming(self, conversation: Conversation, opener: str = "", temperature: float = 0.1) -> ChatResult:
       messages = conversation.to_api_format()
       if opener:
           messages.append({"role": "assistant", "content": opener})
@@ -50,7 +50,7 @@ class HelpBot:
           messages=messages,
           max_tokens=self._settings.max_tokens,
           system=SYSTEM_PROMPT,
-          temperature=self._settings.temperature,
+          temperature=temperature,
       ) as stream:
           if opener:
               print(opener, end="", flush=True)  # print opener before chunks arrive
