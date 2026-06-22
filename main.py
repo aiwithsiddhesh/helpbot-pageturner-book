@@ -15,14 +15,14 @@ _INTENT_OPENERS: dict[str, str] = {
 }
 
 
-def _bootstrap() -> tuple[anthropic.Anthropic, HelpBot, Conversation]:
+def _bootstrap() -> tuple[anthropic.Anthropic, HelpBot, Conversation, Settings]:
     try:
         settings = Settings()
     except ValidationError:
         sys.exit("Error: ANTHROPIC_API_KEY is not set. Copy .env.example to .env and add your key.")
     client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
     bot = HelpBot(settings=settings, client=client)
-    return client, bot, Conversation()
+    return client, bot, Conversation(), settings
 
 
 def _handle_command(user_input: str, temperature: float) -> tuple[float | None, bool]:
@@ -68,9 +68,7 @@ def _handle_message(
 
 
 def main() -> None:
-    client, bot, conversation = _bootstrap()
-    # settings is needed by detect_intent / extractors — re-read from bot to avoid a second Settings()
-    settings = bot._settings
+    client, bot, conversation, settings = _bootstrap()
     temperature: float = 0.1
 
     print("Welcome to HelpBot! Type 'exit' to quit.")
