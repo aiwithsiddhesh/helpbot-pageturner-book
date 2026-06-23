@@ -6,18 +6,16 @@ from helpbot import (
     Settings, HelpBot, 
     Conversation, 
     detect_intent, 
-    INTENT_EXTRACTOR_MAP
+    INTENT_EXTRACTOR_MAP,
+    INTENT_REGISTRY,
     )
 
 
 _INTENT_OPENERS: dict[str, str] = {
-    "return_request":      "I'm sorry to hear that. Let me help you sort this out!",
-    "complaint":           "I sincerely apologise for the trouble you've experienced.",
-    "order_wrong_item":    "I'm sorry you received the wrong item — let's fix that right away.",
-    "order_missing_item":  "I apologise that part of your order is missing.",
-    "refund_status":       "I understand waiting for a refund is frustrating.",
-    "account_login_issue": "I'm sorry you're having trouble accessing your account.",
-}
+    intent: cfg["opener"]
+    for intent, cfg in INTENT_REGISTRY.items()
+    if cfg["opener"]
+    }
 
 
 def _bootstrap() -> tuple[anthropic.Anthropic, HelpBot, Conversation, Settings]:
@@ -60,11 +58,6 @@ def _handle_message(
     temperature: float,
 ) -> None:
     intent = detect_intent(user_input, settings, client)
-    extractor = INTENT_EXTRACTOR_MAP.get(intent)
-    if extractor:
-        extracted = extractor(user_input, settings, client)
-        print(f"[Intent: {intent}] {extracted}")
-
     conversation.add_user(user_input)
     print("HelpBot: ", end="", flush=True)
     opener = _INTENT_OPENERS.get(intent, "")

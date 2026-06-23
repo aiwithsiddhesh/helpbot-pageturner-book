@@ -1,0 +1,47 @@
+[order_status]
+opener = ""
+tools = []
+
+[order_cancellation]
+opener = ""
+tools = []
+
+[order_wrong_item]
+opener = "I'm sorry you received the wrong item — let's fix that right away."
+tools = []
+
+[order_missing_item]
+opener = "I apologise that part of your order is missing."
+tools = []
+
+[return_request]
+opener = "I'm sorry to hear that. Let me help you sort this out!"
+tools = []
+
+[refund_status]
+opener = "I understand waiting for a refund is frustrating."
+tools = []
+
+[account_login_issue]
+opener = "I'm sorry you're having trouble accessing your account."
+tools = []
+
+[account_update]
+opener = ""
+tools = []
+
+[book_recommendation]
+opener = ""
+tools = []
+
+[book_availability]
+opener = ""
+tools = []
+
+[complaint]
+opener = "I sincerely apologise for the trouble you've experienced."
+tools = []
+
+[general_enquiry]
+opener = ""
+tools = []
