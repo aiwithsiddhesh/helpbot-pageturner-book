@@ -57,11 +57,12 @@ class HelpBot:
                 conversation.add_assistant_raw([b.model_dump() for b in final.content])
                 [conversation.add_tool_result(b.id, *run_tool(b.name, b.input)) for b in final.content if b.type == "tool_use"]
             else:
-                conversation.add_assistant(final.content[0].text)
+                text = " ".join(b.text for b in final.content if b.type == "text")
+                conversation.add_assistant(text)
                 break
 
         return ChatResult(
-            text=final.content[0].text,
+            text=text,
             input_tokens=total_input,
             output_tokens=total_output,
             total_tokens=total_input + total_output,
