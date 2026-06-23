@@ -44,4 +44,4 @@ tools = []
 
 [general_enquiry]
 opener = ""
-tools = []
+tools = ["add_numbers"]

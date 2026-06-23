@@ -3,19 +3,19 @@ import anthropic
 from pydantic import ValidationError
 
 from helpbot import (
-    Settings, HelpBot, 
-    Conversation, 
-    detect_intent, 
-    INTENT_EXTRACTOR_MAP,
+    Settings, HelpBot,
+    Conversation,
+    detect_intent,
     INTENT_REGISTRY,
-    )
+)
+from helpbot.tools import load_schemas
 
 
 _INTENT_OPENERS: dict[str, str] = {
     intent: cfg["opener"]
     for intent, cfg in INTENT_REGISTRY.items()
     if cfg["opener"]
-    }
+}
 
 
 def _bootstrap() -> tuple[anthropic.Anthropic, HelpBot, Conversation, Settings]:
@@ -29,7 +29,6 @@ def _bootstrap() -> tuple[anthropic.Anthropic, HelpBot, Conversation, Settings]:
 
 
 def _handle_command(user_input: str, temperature: float) -> tuple[float | None, bool]:
-    """Handle slash commands and control inputs. Returns (new_temperature, should_exit)."""
     if not user_input:
         print("Please enter a valid question.")
         return temperature, False
@@ -46,7 +45,7 @@ def _handle_command(user_input: str, temperature: float) -> tuple[float | None, 
         except (ValueError, IndexError):
             print("[Valid Usage: /temp 0.0 to 1.0]\n")
         return temperature, False
-    return None, False  # None signals: not a command, proceed to chat
+    return None, False
 
 
 def _handle_message(
@@ -58,10 +57,12 @@ def _handle_message(
     temperature: float,
 ) -> None:
     intent = detect_intent(user_input, settings, client)
+    tool_names = INTENT_REGISTRY[intent].get("tools", [])
+    tools = load_schemas(tool_names) if tool_names else None
     conversation.add_user(user_input)
     print("HelpBot: ", end="", flush=True)
     opener = _INTENT_OPENERS.get(intent, "")
-    result = bot.chat_streaming(conversation, opener=opener, temperature=temperature)
+    result = bot.chat_streaming(conversation, opener=opener, temperature=temperature, tools=tools)
     print(f"(Input Tokens: {result.input_tokens}, Output Tokens: {result.output_tokens}, Total Tokens: {result.total_tokens})\n")
 
 
