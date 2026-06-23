@@ -2,7 +2,12 @@ import sys
 import anthropic
 from pydantic import ValidationError
 
-from helpbot import Settings, HelpBot, Conversation, detect_intent, INTENT_EXTRACTOR_MAP
+from helpbot import (
+    Settings, HelpBot, 
+    Conversation, 
+    detect_intent, 
+    INTENT_EXTRACTOR_MAP
+    )
 
 
 _INTENT_OPENERS: dict[str, str] = {

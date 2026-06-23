@@ -21,9 +21,7 @@ def _extract(prompt: str, settings: Settings, client: anthropic.Anthropic) -> di
         ],
         stop_sequences=["```"],
     )
-    raw = "```json" + response.content[0].text
-    json_str = raw.replace("```json", "").replace("```", "").strip()
-    return json.loads(json_str)
+    return json.loads(response.content[0].text.strip())
 
 
 # ---------------------------------------------------------------------------
