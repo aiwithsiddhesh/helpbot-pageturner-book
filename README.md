@@ -24,7 +24,6 @@ python main.py
 ```
 
 **Runtime commands:**
-- `/temp 0.7` — adjust response temperature on the fly (0.0–1.0)
 - `exit` — quit
 
 ## How It Works

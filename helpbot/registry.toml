@@ -1,54 +1,70 @@
 [order_status]
 tools = ["check_order_status"]
+temperature = 0.1
 
 [order_cancellation]
 tools = ["cancel_order"]
+temperature = 0.1
 
 [order_wrong_item]
 opener = "I'm sorry you received the wrong item — let's fix that right away."
 tools = ["report_order_issue"]
+temperature = 0.5
 
 [order_missing_item]
 opener = "I apologise that part of your order is missing."
 tools = ["report_order_issue"]
+temperature = 0.5
 
 [return_request]
 opener = "I'm sorry to hear that. Let me help you sort this out!"
 tools = ["check_return_eligibility"]
+temperature = 0.3
 
 [refund_status]
 opener = "I understand waiting for a refund is frustrating."
 tools = ["get_refund_status"]
+temperature = 0.1
 
 [account_login_issue]
 opener = "I'm sorry you're having trouble accessing your account."
 tools = ["get_account_status"]
+temperature = 0.3
 
 [account_update]
 tools = []
+temperature = 0.3
 
 [book_recommendation]
 tools = []
+temperature = 0.8
 
 [book_availability]
 tools = ["check_book_availability", "get_restock_date"]
+temperature = 0.1
 
 [complaint]
 opener = "I sincerely apologise for the trouble you've experienced."
 tools = ["check_order_status", "report_delivery_issue"]
+temperature = 0.6
 
 [promo_enquiry]
 tools = ["validate_promo_code"]
+temperature = 0.1
 
 [loyalty_enquiry]
 tools = ["get_loyalty_status"]
+temperature = 0.3
 
 [digital_access_issue]
 opener = "I'm sorry you're having trouble accessing your digital purchase."
 tools = ["get_digital_purchase", "resend_download_link"]
+temperature = 0.3
 
 [gift_order_enquiry]
 tools = ["check_gift_order"]
+temperature = 0.3
 
 [general_enquiry]
 tools = []
+temperature = 0.4

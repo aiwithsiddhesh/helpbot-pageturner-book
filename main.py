@@ -27,33 +27,23 @@ def _bootstrap() -> tuple[HelpBot, Conversation]:
     return HelpBot(settings=settings, client=client), Conversation()
 
 
-def _handle_command(user_input: str, temperature: float) -> tuple[float | None, bool]:
+def _handle_command(user_input: str) -> bool:
     if not user_input:
         print("Please enter a valid question.")
-        return temperature, False
+        return False
     if user_input.lower() == "exit":
         print("Goodbye!")
-        return temperature, True
-    if user_input.startswith("/temp "):
-        try:
-            new_temp = float(user_input.split()[1])
-            if not 0.0 <= new_temp <= 1.0:
-                raise ValueError
-            print(f"[Temperature set to {new_temp}]\n")
-            return new_temp, False
-        except (ValueError, IndexError):
-            print("[Valid Usage: /temp 0.0 to 1.0]\n")
-        return temperature, False
-    return None, False
+        return True
+    return False
 
 
 def _handle_message(
     user_input: str,
     bot: HelpBot,
     conversation: Conversation,
-    temperature: float,
 ) -> None:
     intent = detect_intent(user_input, bot.settings, bot.client)
+    temperature = INTENT_REGISTRY[intent].get("temperature", 0.1)
     tool_names = INTENT_REGISTRY[intent].get("tools", [])
     tools = load_schemas(tool_names) if tool_names else None
     conversation.add_user(user_input)
@@ -67,20 +57,16 @@ def _handle_message(
 
 def main() -> None:
     bot, conversation = _bootstrap()
-    temperature: float = 0.1
 
     print("Welcome to HelpBot! Type 'exit' to quit.")
     while True:
         user_input = input("You: ").strip()
 
-        new_temp, should_exit = _handle_command(user_input, temperature)
-        if should_exit:
+        if _handle_command(user_input):
             break
-        if new_temp is not None:
-            temperature = new_temp
-            continue
 
-        _handle_message(user_input, bot, conversation, temperature)
+        if user_input:
+            _handle_message(user_input, bot, conversation)
 
 
 if __name__ == "__main__":
