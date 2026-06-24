@@ -9,16 +9,11 @@ HelpBot is a CLI chatbot for PageTurner Books (a fictional bookstore) built as a
 ## Setup
 
 ```bash
-# Create and activate virtual environment
 python -m venv .venv
 .venv\Scripts\activate   # Windows
-
-# Install dependencies
 pip install -e .
-
-# Configure API key
 cp .env.example .env
-# Edit .env and add your ANTHROPIC_API_KEY
+# Edit .env and add ANTHROPIC_API_KEY
 ```
 
 ## Running
@@ -27,41 +22,63 @@ cp .env.example .env
 python main.py
 ```
 
-Runtime commands available in the chat loop:
-- `/temp 0.7` — change temperature on the fly (0.0–1.0); updates a local float, no object reconstruction
+Runtime commands in the chat loop:
+- `/temp 0.7` — change temperature on the fly (0.0–1.0)
 - `exit` — quit
 
 ## Architecture
 
+### Entry points
+
 All Claude API calls flow through two entry points:
 
-1. **`helpbot/output.py` — `_extract()`**: A low-level primitive used for structured extraction. It uses the prefill + stop sequence pattern: pre-fills the assistant turn with ` ```json ` and uses ` ``` ` as a stop sequence to force valid JSON output. This powers both `detect_intent()` and all `INTENT_EXTRACTOR_MAP` extractors.
+1. **`helpbot/output.py` — `_extract()`**: Low-level primitive for structured extraction. Pre-fills the assistant turn with ` ```json ` and uses ` ``` ` as a stop sequence to force valid JSON output without preamble. Powers `detect_intent()`.
 
-2. **`helpbot/chat.py` — `HelpBot`**: Wraps the Anthropic client. `chat()` is the blocking pattern (kept for reference); `chat_streaming()` is the production path — it streams chunks to stdout, supports tone prefilling via an `opener` parameter injected as an assistant turn prefill, then appends the final response to the `Conversation`.
+2. **`helpbot/chat.py` — `HelpBot.chat_streaming()`**: Production streaming path. Accepts an `opener` string injected as an assistant prefill for tone steering. Runs a tool-use loop — keeps calling `_call()` and appending tool results to the conversation until `stop_reason != "tool_use"`.
 
-**`main.py` structure:**
-- `_bootstrap()` — loads `Settings`, creates the single `anthropic.Anthropic` client, `HelpBot`, and `Conversation`. The client is created once and shared for the entire session.
-- `_handle_command()` — routes `/temp`, `exit`, and empty input. Returns `(new_temperature | None, should_exit)`. `None` temperature signals "not a command, proceed to chat".
-- `_handle_message()` — runs the full intent pipeline and streams the response.
-- `main()` — the `while` loop; just calls the above three.
+### Intent and tool dispatch
 
-**Request lifecycle (`_handle_message`):**
-1. `detect_intent()` classifies the message (one extra API call)
-2. `INTENT_EXTRACTOR_MAP.get(intent)` optionally extracts structured fields (another API call)
-3. `_INTENT_OPENERS` maps the intent to a prefill string (tone steering)
-4. `bot.chat_streaming(conversation, opener=opener, temperature=temperature)` generates and streams the response
+The system is driven by **`helpbot/registry.toml`** — a TOML file where each `[intent]` section declares an optional `opener` string and a `tools` list. `registry.py` loads this once into `INTENT_REGISTRY`.
 
-**Data model:**
-- `Settings` (pydantic-settings, `config.py`): loads `ANTHROPIC_API_KEY`, `model`, `max_tokens` from `.env`. Frozen. `temperature` is intentionally excluded — it is runtime state, not config.
-- `temperature` — plain `float` local in `main()`, defaulting to `0.1`. `/temp` reassigns it directly; no object reconstruction needed.
-- `Conversation` (pydantic, `conversation.py`): typed message history; `to_api_format()` serialises to the `[{"role": ..., "content": ...}]` shape the API expects.
-- `ChatResult` (pydantic, `chat.py`): return value of both `chat()` and `chat_streaming()` — includes token counts.
+Request lifecycle in `_handle_message()`:
+1. `detect_intent()` — one API call, returns a key from `INTENT_REGISTRY`
+2. `INTENT_REGISTRY[intent]["tools"]` — resolves to a list of tool names
+3. `load_schemas(tool_names)` — fetches Anthropic tool schemas from the tool engine
+4. `bot.chat_streaming(..., tools=tools)` — streams the response, running tool calls if needed
+
+**To add a new intent:** add a `[new_intent]` block to `registry.toml` with `tools = [...]` and an optional `opener`. No Python changes needed unless you also need a new tool.
+
+### Tool engine
+
+`helpbot/tools/engine/base.py` — `Tool` (ABC):
+- Subclasses declare `properties: dict[str, str]` (field → description) as a class attribute
+- `schema` property auto-generates the Anthropic tool schema; tool `name` is derived from the class name via `_to_snake_case()`
+- `run(**kwargs) -> dict` is the implementation
+
+`helpbot/tools/engine/loader.py`:
+- On first call, auto-discovers all `Tool` subclasses by importing every module in `tools_catalog/`
+- `load_schemas(tool_names)` returns schemas; `run_tool(name, input)` executes a tool by name
+
+**To add a new tool:** create a class in `helpbot/tools/tools_catalog/` that inherits `Tool`, set `properties`, write `run()`. It is discovered automatically — no registration step.
+
+### Database layer
+
+`helpbot/db/__init__.py` — `get_connection()` returns a `sqlite3.Connection` (with `row_factory = sqlite3.Row`). The DB is initialised from `schema.sql` and `seed.sql` on first use.
+
+Tables: `orders`, `return_eligibility`, `refunds`, `books`, `accounts`, `promo_codes`, `loyalty`, `digital_purchases`, `gift_orders`.
+
+### Data model
+
+- `Settings` (`config.py`, pydantic-settings): loads `ANTHROPIC_API_KEY`, `model`, `max_tokens` from `.env`. Frozen. `temperature` is runtime state — a plain `float` in `main()`, not in Settings.
+- `Conversation` (`conversation.py`): typed message history. `to_api_format()` serialises to `[{"role": ..., "content": ...}]`. `add_assistant_raw()` accepts raw content blocks for tool-use turns.
+- `ChatResult` (`chat.py`): return value of `chat_streaming()` — includes `api_calls` count (just the streaming turns; `detect_intent()` adds 1 more in `main.py`).
 
 ## Key Patterns to Preserve
 
-- **Extractor registry** (`output.py`): Adding a new intent only requires one entry in `_EXTRACTOR_SPECS`; `INTENT_EXTRACTOR_MAP` is built via dict comprehension. Don't break this pattern.
-- **Prefill / stop-sequence JSON extraction** (`_extract()`): The `"```json"` assistant prefill and `"```"` stop sequence are load-bearing — they force the model to emit parseable JSON without preamble.
-- **Tone prefilling** (`chat_streaming` + `opener`): The opener is appended as an assistant turn in the messages list before streaming, causing the model to continue from that tone. The opener is also printed before streaming begins so output is contiguous.
+- **Prefill / stop-sequence JSON extraction** (`_extract()`): The ` ```json ` prefill and ` ``` ` stop sequence are load-bearing — do not alter them.
+- **Tool-use loop** (`chat_streaming`): The `while True` loop in `chat_streaming()` handles multi-turn tool calls. The loop breaks only when `stop_reason != "tool_use"`.
+- **Registry-driven dispatch** (`registry.toml`): Intent→tools mapping lives in TOML, not Python. Keep new intents there.
+- **Auto-discovery** (`loader.py`): `Tool` subclasses self-register via `_all_subclasses()`. Do not maintain a manual list.
 
 ## Dependencies
 
@@ -69,6 +86,6 @@ All Claude API calls flow through two entry points:
 |---|---|
 | `anthropic` | Claude API client |
 | `pydantic` / `pydantic-settings` | Settings validation and typed models |
-| `python-dotenv` | `.env` loading (handled via `pydantic-settings`) |
+| `python-dotenv` | `.env` loading (via `pydantic-settings`) |
 
 Default model: `claude-haiku-4-5` (fast, cheap — appropriate for a learning project).
