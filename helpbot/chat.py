@@ -10,6 +10,7 @@ class ChatResult(BaseModel):
     input_tokens: int
     output_tokens: int
     total_tokens: int
+    api_calls: int
 
 
 class HelpBot:
@@ -55,11 +56,12 @@ class HelpBot:
             print(opener, end="", flush=True)
             conversation.add_assistant(opener)
 
-        total_input = total_output = 0
+        total_input = total_output = api_calls = 0
         while True:
             final = self._call(conversation.to_api_format(), temperature, tools)
             total_input += final.usage.input_tokens
             total_output += final.usage.output_tokens
+            api_calls += 1
 
             if final.stop_reason == "tool_use":
                 conversation.add_assistant_raw([b.model_dump() for b in final.content])
@@ -74,4 +76,5 @@ class HelpBot:
             input_tokens=total_input,
             output_tokens=total_output,
             total_tokens=total_input + total_output,
+            api_calls=api_calls,
         )
