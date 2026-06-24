@@ -11,6 +11,8 @@ class ChatResult(BaseModel):
     output_tokens: int
     total_tokens: int
     api_calls: int
+    cache_creation_tokens: int = 0
+    cache_read_tokens: int = 0
 
 
 class HelpBot:
@@ -32,13 +34,19 @@ class HelpBot:
         temperature: float,
         tools: list[dict] | None,
     ) -> anthropic.types.Message:
+        cached_system = [{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}]
+
+        cached_tools = None
+        if tools:
+            cached_tools = tools[:-1] + [{**tools[-1], "cache_control": {"type": "ephemeral"}}]
+
         with self._client.messages.stream(
             model=self._settings.model,
             max_tokens=self._settings.max_tokens,
-            system=SYSTEM_PROMPT,
+            system=cached_system,
             temperature=temperature,
             messages=messages,
-            **({"tools": tools} if tools else {}),
+            **({"tools": cached_tools} if cached_tools else {}),
         ) as stream:
             for chunk in stream.text_stream:
                 print(chunk, end="", flush=True)
@@ -57,10 +65,13 @@ class HelpBot:
             conversation.add_assistant(opener)
 
         total_input = total_output = api_calls = 0
+        total_cache_creation = total_cache_read = 0
         while True:
             final = self._call(conversation.to_api_format(), temperature, tools)
             total_input += final.usage.input_tokens
             total_output += final.usage.output_tokens
+            total_cache_creation += getattr(final.usage, "cache_creation_input_tokens", 0) or 0
+            total_cache_read += getattr(final.usage, "cache_read_input_tokens", 0) or 0
             api_calls += 1
 
             if final.stop_reason == "tool_use":
@@ -77,4 +88,6 @@ class HelpBot:
             output_tokens=total_output,
             total_tokens=total_input + total_output,
             api_calls=api_calls,
+            cache_creation_tokens=total_cache_creation,
+            cache_read_tokens=total_cache_read,
         )
