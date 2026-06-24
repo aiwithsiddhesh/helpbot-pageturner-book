@@ -19,11 +19,12 @@ cp .env.example .env
 ## Running
 
 ```bash
-python main.py
+python main.py          # run the chatbot
+python eval_intent.py   # run intent classification eval (makes ~37 API calls)
 ```
 
 Runtime commands in the chat loop:
-- `exit` — quit
+- `exit` — quit (prints session token summary on exit)
 
 ## Architecture
 
@@ -31,21 +32,32 @@ Runtime commands in the chat loop:
 
 All Claude API calls flow through two entry points:
 
-1. **`helpbot/output.py` — `_extract()`**: Low-level primitive for structured extraction. Pre-fills the assistant turn with ` ```json ` and uses ` ``` ` as a stop sequence to force valid JSON output without preamble. Powers `detect_intent()`.
+1. **`helpbot/output.py` — `detect_intent()`**: Classifies each user message into one of 15 intents via a single API call. Uses the prefill + stop sequence pattern — the static classification prompt is cached via `cache_control: ephemeral`; only the dynamic customer message is sent uncached each time.
 
-2. **`helpbot/chat.py` — `HelpBot.chat_streaming()`**: Production streaming path. Accepts an `opener` string injected as an assistant prefill for tone steering. Runs a tool-use loop — keeps calling `_call()` and appending tool results to the conversation until `stop_reason != "tool_use"`.
+2. **`helpbot/chat.py` — `HelpBot.chat_streaming()`**: Production streaming path. Accepts an `opener` string injected as an assistant prefill for tone steering. Runs a tool-use loop — keeps calling `_call()` and appending tool results to the conversation until `stop_reason != "tool_use"`. System prompt and tool schemas are cached via `cache_control: ephemeral` on every call.
 
 ### Intent and tool dispatch
 
-The system is driven by **`helpbot/registry.toml`** — a TOML file where each `[intent]` section declares an optional `opener` string and a `tools` list. `registry.py` loads this once into `INTENT_REGISTRY`.
+The system is driven by **`helpbot/registry.toml`** — a TOML file where each `[intent]` section declares an optional `opener` string, a `tools` list, and a `temperature` value tuned for that intent type. `registry.py` loads this once into `INTENT_REGISTRY`.
 
 Request lifecycle in `_handle_message()`:
-1. `detect_intent()` — one API call, returns a key from `INTENT_REGISTRY`
-2. `INTENT_REGISTRY[intent]["tools"]` — resolves to a list of tool names
-3. `load_schemas(tool_names)` — fetches Anthropic tool schemas from the tool engine
-4. `bot.chat_streaming(..., tools=tools)` — streams the response, running tool calls if needed
+1. `detect_intent()` — one cached API call, returns a key from `INTENT_REGISTRY`
+2. `INTENT_REGISTRY[intent]["temperature"]` — per-intent temperature (factual intents low, empathy/creative intents higher)
+3. `INTENT_REGISTRY[intent]["tools"]` — resolves to a list of tool names
+4. `load_schemas(tool_names)` — fetches Anthropic tool schemas from the tool engine
+5. `bot.chat_streaming(..., tools=tools)` — streams the response, running tool calls if needed
 
-**To add a new intent:** add a `[new_intent]` block to `registry.toml` with `tools = [...]` and an optional `opener`. No Python changes needed unless you also need a new tool.
+**To add a new intent:** add a `[new_intent]` block to `registry.toml` with `tools = [...]`, `temperature = X`, and an optional `opener`. No Python changes needed unless you also need a new tool.
+
+### Prompt caching
+
+Three layers of caching are active on every request:
+- **System prompt** — passed as a typed block with `cache_control: ephemeral` in `_call()`
+- **Tool schemas** — `cache_control` appended to the last tool schema before the API call (copy, never mutate `_REGISTRY`)
+- **Conversation prefix** — `to_api_format()` marks the second-to-last message with `cache_control: ephemeral` so the stable history prefix is cached each turn
+- **Intent classification prompt** — the static prefix of the `detect_intent()` prompt is cached; only the customer message is dynamic
+
+Cache stats (`cache_creation_tokens`, `cache_read_tokens`) are tracked in `ChatResult` and shown in the per-turn stats line and the session summary.
 
 ### Tool engine
 
@@ -68,16 +80,23 @@ Tables: `orders`, `return_eligibility`, `refunds`, `books`, `accounts`, `promo_c
 
 ### Data model
 
-- `Settings` (`config.py`, pydantic-settings): loads `ANTHROPIC_API_KEY`, `model`, `max_tokens` from `.env`. Frozen. `temperature` is runtime state — a plain `float` in `main()`, not in Settings.
-- `Conversation` (`conversation.py`): typed message history. `to_api_format()` serialises to `[{"role": ..., "content": ...}]`. `add_assistant_raw()` accepts raw content blocks for tool-use turns.
-- `ChatResult` (`chat.py`): return value of `chat_streaming()` — includes `api_calls` count (just the streaming turns; `detect_intent()` adds 1 more in `main.py`).
+- `Settings` (`config.py`, pydantic-settings): loads `ANTHROPIC_API_KEY`, `model`, `max_tokens` from `.env`. Frozen.
+- `Conversation` (`conversation.py`): typed message history. `to_api_format()` serialises to the API format and attaches `cache_control` to the second-to-last message. `add_assistant_raw()` accepts raw content blocks for tool-use turns.
+- `ChatResult` (`chat.py`): return value of `chat_streaming()` — includes `input_tokens`, `output_tokens`, `total_tokens`, `api_calls`, `cache_creation_tokens`, `cache_read_tokens`.
+- `SessionStats` (`main.py`): accumulates `ChatResult` values across the session; prints a summary on exit.
+
+### Intent eval harness
+
+`eval_intent.py` — 37 labelled test cases covering all 15 intents plus edge cases. Run after any change to the classification prompt or `SYSTEM_PROMPT` to get an objective accuracy score. Exits with code 1 if accuracy drops below 80%. Record the baseline score in the file docstring after the first run.
 
 ## Key Patterns to Preserve
 
 - **Prefill / stop-sequence JSON extraction** (`_extract()`): The ` ```json ` prefill and ` ``` ` stop sequence are load-bearing — do not alter them.
-- **Tool-use loop** (`chat_streaming`): The `while True` loop in `chat_streaming()` handles multi-turn tool calls. The loop breaks only when `stop_reason != "tool_use"`.
-- **Registry-driven dispatch** (`registry.toml`): Intent→tools mapping lives in TOML, not Python. Keep new intents there.
+- **Tool-use loop** (`chat_streaming`): The `while True` loop handles multi-turn tool calls. The loop breaks only when `stop_reason != "tool_use"`.
+- **Registry-driven dispatch** (`registry.toml`): Intent→tools→temperature mapping lives in TOML, not Python. Keep new intents there.
 - **Auto-discovery** (`loader.py`): `Tool` subclasses self-register via `_all_subclasses()`. Do not maintain a manual list.
+- **Cache safety** (`_call()`): Tool schemas are copied before attaching `cache_control` — never mutate the shared `_REGISTRY` dicts directly.
+- **Conversation cache pointer** (`to_api_format()`): Marks `serialised[-2]`, not the live turn. Handles both `str` and `list` content shapes correctly.
 
 ## Dependencies
 
