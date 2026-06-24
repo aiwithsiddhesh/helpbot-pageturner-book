@@ -34,4 +34,11 @@ class Conversation(BaseModel):
         self.messages.clear()
 
     def to_api_format(self) -> list[dict]:
-        return [m.model_dump() for m in self.messages]
+        serialised = [m.model_dump() for m in self.messages]
+        if len(serialised) >= 2:
+            target = serialised[-2]
+            if isinstance(target["content"], str):
+                target["content"] = [{"type": "text", "text": target["content"], "cache_control": {"type": "ephemeral"}}]
+            elif isinstance(target["content"], list) and target["content"]:
+                target["content"][-1]["cache_control"] = {"type": "ephemeral"}
+        return serialised

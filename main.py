@@ -1,4 +1,5 @@
 import sys
+from dataclasses import dataclass, field
 import anthropic
 from pydantic import ValidationError
 
@@ -9,6 +10,7 @@ from helpbot import (
     INTENT_REGISTRY,
 )
 from helpbot.tools import load_schemas
+from helpbot.chat import ChatResult
 
 
 _INTENT_OPENERS: dict[str, str] = {
@@ -16,6 +18,33 @@ _INTENT_OPENERS: dict[str, str] = {
     for intent, cfg in INTENT_REGISTRY.items()
     if cfg["opener"]
 }
+
+
+@dataclass
+class SessionStats:
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_creation_tokens: int = 0
+    cache_read_tokens: int = 0
+    api_calls: int = 0
+
+    def add(self, result: ChatResult, extra_calls: int = 0) -> None:
+        self.input_tokens += result.input_tokens
+        self.output_tokens += result.output_tokens
+        self.cache_creation_tokens += result.cache_creation_tokens
+        self.cache_read_tokens += result.cache_read_tokens
+        self.api_calls += result.api_calls + extra_calls
+
+    def print_summary(self) -> None:
+        if self.api_calls == 0:
+            return
+        total = self.input_tokens + self.output_tokens
+        print("\n── Session Summary ──────────────────────────────────")
+        print(f"  API calls       : {self.api_calls:,}")
+        print(f"  Input tokens    : {self.input_tokens:,}  (cache created: {self.cache_creation_tokens:,} | cache read: {self.cache_read_tokens:,})")
+        print(f"  Output tokens   : {self.output_tokens:,}")
+        print(f"  Total tokens    : {total:,}")
+        print("─────────────────────────────────────────────────────")
 
 
 def _bootstrap() -> tuple[HelpBot, Conversation]:
@@ -27,33 +56,23 @@ def _bootstrap() -> tuple[HelpBot, Conversation]:
     return HelpBot(settings=settings, client=client), Conversation()
 
 
-def _handle_command(user_input: str, temperature: float) -> tuple[float | None, bool]:
+def _handle_command(user_input: str) -> bool:
     if not user_input:
         print("Please enter a valid question.")
-        return temperature, False
+        return False
     if user_input.lower() == "exit":
         print("Goodbye!")
-        return temperature, True
-    if user_input.startswith("/temp "):
-        try:
-            new_temp = float(user_input.split()[1])
-            if not 0.0 <= new_temp <= 1.0:
-                raise ValueError
-            print(f"[Temperature set to {new_temp}]\n")
-            return new_temp, False
-        except (ValueError, IndexError):
-            print("[Valid Usage: /temp 0.0 to 1.0]\n")
-        return temperature, False
-    return None, False
+        return True
+    return False
 
 
 def _handle_message(
     user_input: str,
     bot: HelpBot,
     conversation: Conversation,
-    temperature: float,
-) -> None:
+) -> ChatResult:
     intent = detect_intent(user_input, bot.settings, bot.client)
+    temperature = INTENT_REGISTRY[intent].get("temperature", 0.1)
     tool_names = INTENT_REGISTRY[intent].get("tools", [])
     tools = load_schemas(tool_names) if tool_names else None
     conversation.add_user(user_input)
@@ -61,25 +80,27 @@ def _handle_message(
     opener = _INTENT_OPENERS.get(intent, "")
     result = bot.chat_streaming(conversation, opener=opener, temperature=temperature, tools=tools)
     total_calls = result.api_calls + 1  # +1 for detect_intent()
-    print(f"(API Calls: {total_calls} | Input Tokens: {result.input_tokens}, Output Tokens: {result.output_tokens}, Total Tokens: {result.total_tokens})\n")
+    cache_info = f", Cache Created: {result.cache_creation_tokens}, Cache Read: {result.cache_read_tokens}" if (result.cache_creation_tokens or result.cache_read_tokens) else ""
+    print(f"(API Calls: {total_calls} | Input Tokens: {result.input_tokens}, Output Tokens: {result.output_tokens}, Total Tokens: {result.total_tokens}{cache_info})\n")
+    return result
 
 
 def main() -> None:
     bot, conversation = _bootstrap()
-    temperature: float = 0.1
+    stats = SessionStats()
 
     print("Welcome to HelpBot! Type 'exit' to quit.")
     while True:
         user_input = input("You: ").strip()
 
-        new_temp, should_exit = _handle_command(user_input, temperature)
-        if should_exit:
+        if _handle_command(user_input):
             break
-        if new_temp is not None:
-            temperature = new_temp
-            continue
 
-        _handle_message(user_input, bot, conversation, temperature)
+        if user_input:
+            result = _handle_message(user_input, bot, conversation)
+            stats.add(result, extra_calls=1)  # +1 for detect_intent()
+
+    stats.print_summary()
 
 
 if __name__ == "__main__":
