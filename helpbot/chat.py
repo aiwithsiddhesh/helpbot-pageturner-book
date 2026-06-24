@@ -17,6 +17,14 @@ class HelpBot:
         self._client = client
         self._settings = settings
 
+    @property
+    def client(self) -> anthropic.Anthropic:
+        return self._client
+
+    @property
+    def settings(self) -> Settings:
+        return self._settings
+
     def _call(
         self,
         messages: list[dict],

@@ -18,14 +18,13 @@ _INTENT_OPENERS: dict[str, str] = {
 }
 
 
-def _bootstrap() -> tuple[anthropic.Anthropic, HelpBot, Conversation, Settings]:
+def _bootstrap() -> tuple[HelpBot, Conversation]:
     try:
         settings = Settings()
     except ValidationError:
         sys.exit("Error: ANTHROPIC_API_KEY is not set. Copy .env.example to .env and add your key.")
     client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-    bot = HelpBot(settings=settings, client=client)
-    return client, bot, Conversation(), settings
+    return HelpBot(settings=settings, client=client), Conversation()
 
 
 def _handle_command(user_input: str, temperature: float) -> tuple[float | None, bool]:
@@ -52,11 +51,9 @@ def _handle_message(
     user_input: str,
     bot: HelpBot,
     conversation: Conversation,
-    settings: Settings,
-    client: anthropic.Anthropic,
     temperature: float,
 ) -> None:
-    intent = detect_intent(user_input, settings, client)
+    intent = detect_intent(user_input, bot.settings, bot.client)
     tool_names = INTENT_REGISTRY[intent].get("tools", [])
     tools = load_schemas(tool_names) if tool_names else None
     conversation.add_user(user_input)
@@ -67,7 +64,7 @@ def _handle_message(
 
 
 def main() -> None:
-    client, bot, conversation, settings = _bootstrap()
+    bot, conversation = _bootstrap()
     temperature: float = 0.1
 
     print("Welcome to HelpBot! Type 'exit' to quit.")
@@ -81,7 +78,7 @@ def main() -> None:
             temperature = new_temp
             continue
 
-        _handle_message(user_input, bot, conversation, settings, client, temperature)
+        _handle_message(user_input, bot, conversation, temperature)
 
 
 if __name__ == "__main__":
