@@ -1,4 +1,5 @@
 import sys
+from dataclasses import dataclass, field
 import anthropic
 from pydantic import ValidationError
 
@@ -9,6 +10,7 @@ from helpbot import (
     INTENT_REGISTRY,
 )
 from helpbot.tools import load_schemas
+from helpbot.chat import ChatResult
 
 
 _INTENT_OPENERS: dict[str, str] = {
@@ -16,6 +18,33 @@ _INTENT_OPENERS: dict[str, str] = {
     for intent, cfg in INTENT_REGISTRY.items()
     if cfg["opener"]
 }
+
+
+@dataclass
+class SessionStats:
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_creation_tokens: int = 0
+    cache_read_tokens: int = 0
+    api_calls: int = 0
+
+    def add(self, result: ChatResult, extra_calls: int = 0) -> None:
+        self.input_tokens += result.input_tokens
+        self.output_tokens += result.output_tokens
+        self.cache_creation_tokens += result.cache_creation_tokens
+        self.cache_read_tokens += result.cache_read_tokens
+        self.api_calls += result.api_calls + extra_calls
+
+    def print_summary(self) -> None:
+        if self.api_calls == 0:
+            return
+        total = self.input_tokens + self.output_tokens
+        print("\n── Session Summary ──────────────────────────────────")
+        print(f"  API calls       : {self.api_calls:,}")
+        print(f"  Input tokens    : {self.input_tokens:,}  (cache created: {self.cache_creation_tokens:,} | cache read: {self.cache_read_tokens:,})")
+        print(f"  Output tokens   : {self.output_tokens:,}")
+        print(f"  Total tokens    : {total:,}")
+        print("─────────────────────────────────────────────────────")
 
 
 def _bootstrap() -> tuple[HelpBot, Conversation]:
@@ -41,7 +70,7 @@ def _handle_message(
     user_input: str,
     bot: HelpBot,
     conversation: Conversation,
-) -> None:
+) -> ChatResult:
     intent = detect_intent(user_input, bot.settings, bot.client)
     temperature = INTENT_REGISTRY[intent].get("temperature", 0.1)
     tool_names = INTENT_REGISTRY[intent].get("tools", [])
@@ -53,10 +82,12 @@ def _handle_message(
     total_calls = result.api_calls + 1  # +1 for detect_intent()
     cache_info = f", Cache Created: {result.cache_creation_tokens}, Cache Read: {result.cache_read_tokens}" if (result.cache_creation_tokens or result.cache_read_tokens) else ""
     print(f"(API Calls: {total_calls} | Input Tokens: {result.input_tokens}, Output Tokens: {result.output_tokens}, Total Tokens: {result.total_tokens}{cache_info})\n")
+    return result
 
 
 def main() -> None:
     bot, conversation = _bootstrap()
+    stats = SessionStats()
 
     print("Welcome to HelpBot! Type 'exit' to quit.")
     while True:
@@ -66,7 +97,10 @@ def main() -> None:
             break
 
         if user_input:
-            _handle_message(user_input, bot, conversation)
+            result = _handle_message(user_input, bot, conversation)
+            stats.add(result, extra_calls=1)  # +1 for detect_intent()
+
+    stats.print_summary()
 
 
 if __name__ == "__main__":
