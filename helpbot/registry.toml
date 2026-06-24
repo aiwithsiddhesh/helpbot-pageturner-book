@@ -1,18 +1,16 @@
 [order_status]
-opener = ""
 tools = ["check_order_status"]
 
 [order_cancellation]
-opener = ""
 tools = ["cancel_order"]
 
 [order_wrong_item]
 opener = "I'm sorry you received the wrong item — let's fix that right away."
-tools = []
+tools = ["report_order_issue"]
 
 [order_missing_item]
 opener = "I apologise that part of your order is missing."
-tools = []
+tools = ["report_order_issue"]
 
 [return_request]
 opener = "I'm sorry to hear that. Let me help you sort this out!"
@@ -27,15 +25,12 @@ opener = "I'm sorry you're having trouble accessing your account."
 tools = ["get_account_status"]
 
 [account_update]
-opener = ""
 tools = []
 
 [book_recommendation]
-opener = ""
 tools = []
 
 [book_availability]
-opener = ""
 tools = ["check_book_availability", "get_restock_date"]
 
 [complaint]
@@ -43,11 +38,9 @@ opener = "I sincerely apologise for the trouble you've experienced."
 tools = ["check_order_status", "report_delivery_issue"]
 
 [promo_enquiry]
-opener = ""
 tools = ["validate_promo_code"]
 
 [loyalty_enquiry]
-opener = ""
 tools = ["get_loyalty_status"]
 
 [digital_access_issue]
@@ -55,9 +48,7 @@ opener = "I'm sorry you're having trouble accessing your digital purchase."
 tools = ["get_digital_purchase", "resend_download_link"]
 
 [gift_order_enquiry]
-opener = ""
 tools = ["check_gift_order"]
 
 [general_enquiry]
-opener = ""
 tools = []

@@ -1,3 +1,6 @@
+import random
+import string
+
 from helpbot.tools.engine.base import Tool
 from helpbot.db import get_connection
 
@@ -35,3 +38,22 @@ class CancelOrder(Tool):
                 "status": row["status"],
             }
         return {"success": True, "order_id": order_id, "message": "Order successfully cancelled. A refund will be processed within 3–5 business days."}
+
+
+class ReportOrderIssue(Tool):
+    """Report a wrong item or missing item issue for a customer order. Use this for order content problems — wrong book received or items missing from the order."""
+    properties = {
+        "order_id": "The order ID with the issue, e.g. PT-1001",
+        "issue_type": "The type of issue: wrong_item or missing_item",
+        "details": "Brief description of the issue, e.g. which item was wrong or missing",
+    }
+
+    def run(self, order_id: str, issue_type: str, details: str = "") -> dict:
+        case_id = "CASE-" + "".join(random.choices(string.digits, k=6))
+        return {
+            "case_id": case_id,
+            "order_id": order_id,
+            "issue_type": issue_type,
+            "details": details,
+            "message": f"Your issue has been logged under case {case_id}. Our team will review and contact you within 24 hours to resolve this.",
+        }
