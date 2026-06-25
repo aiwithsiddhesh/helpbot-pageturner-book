@@ -83,6 +83,8 @@ class HelpBot:
                 [conversation.add_tool_result(b.id, *run_tool(b.name, b.input)) for b in final.content if b.type == "tool_use"]
             else:
                 text = " ".join(b.text for b in final.content if b.type == "text")
+                if final.stop_reason == "max_tokens":
+                    text += "\n\n*(Response was cut off — please ask me to continue.)*"
                 if opener:
                     text = opener + " " + text
                 conversation.add_assistant(text)
