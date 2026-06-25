@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 import anthropic
-from helpbot.config import Settings, SYSTEM_PROMPT
+from helpbot.config import Settings
+from helpbot.prompts import build_system_prompt
 from helpbot.conversation import Conversation
 from helpbot.tools import run_tool
 from helpbot.utils import _with_retry
@@ -34,8 +35,9 @@ class HelpBot:
         messages: list[dict],
         temperature: float,
         tools: list[dict] | None,
+        intent: str | None = None,
     ) -> anthropic.types.Message:
-        cached_system = [{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}]
+        cached_system = [{"type": "text", "text": build_system_prompt(intent), "cache_control": {"type": "ephemeral"}}]
 
         cached_tools = None
         if tools:
@@ -66,6 +68,7 @@ class HelpBot:
         opener: str = "",
         temperature: float = 0.1,
         tools: list[dict] | None = None,
+        intent: str | None = None,
     ) -> ChatResult:
         MAX_TOOL_ROUNDS = 10
         total_input = total_output = api_calls = rounds = 0
@@ -74,7 +77,7 @@ class HelpBot:
             if rounds >= MAX_TOOL_ROUNDS:
                 raise RuntimeError(f"Tool-use loop exceeded {MAX_TOOL_ROUNDS} rounds — possible model loop.")
             rounds += 1
-            final = self._call(conversation.to_api_format(), temperature, tools)
+            final = self._call(conversation.to_api_format(), temperature, tools, intent)
             total_input += final.usage.input_tokens
             total_output += final.usage.output_tokens
             total_cache_creation += getattr(final.usage, "cache_creation_input_tokens", 0) or 0

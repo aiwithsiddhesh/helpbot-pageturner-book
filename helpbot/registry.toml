@@ -1,70 +1,100 @@
 [order_status]
+description = "Customer asking about the current status or location of their order."
 tools = ["set_customer_identity", "check_order_status"]
 temperature = 0.1
+fallback = "I wasn't able to find that order. Please double-check your order ID (format: PT-XXXX) or contact us at support@pageturner.books."
 
 [order_cancellation]
+description = "Customer requesting to cancel an existing order."
 tools = ["set_customer_identity", "cancel_order"]
 temperature = 0.1
+fallback = "I wasn't able to locate that order to cancel it. If you believe this is an error, please contact us at support@pageturner.books."
 
 [order_wrong_item]
 opener = "I'm sorry you received the wrong item — let's fix that right away."
+description = "Customer received an incorrect item in their order."
 tools = ["set_customer_identity", "report_order_issue"]
 temperature = 0.5
+fallback = "I wasn't able to log your issue automatically. Please contact us directly at support@pageturner.books and we'll resolve this as a priority."
 
 [order_missing_item]
 opener = "I apologise that part of your order is missing."
+description = "Customer's order arrived with one or more items missing."
 tools = ["set_customer_identity", "report_order_issue"]
 temperature = 0.5
+fallback = "I wasn't able to log your issue automatically. Please contact us directly at support@pageturner.books and we'll resolve this as a priority."
 
 [return_request]
 opener = "I'm sorry to hear that. Let me help you sort this out!"
+description = "Customer wants to return a product they purchased."
 tools = ["set_customer_identity", "check_return_eligibility"]
 temperature = 0.3
+fallback = "I wasn't able to find return eligibility information for that order. Please contact us at support@pageturner.books with your order ID and we'll assist you directly."
 
 [refund_status]
 opener = "I understand waiting for a refund is frustrating."
+description = "Customer asking about the status of a refund for a returned order."
 tools = ["set_customer_identity", "get_refund_status"]
 temperature = 0.1
+fallback = "I wasn't able to find a refund for that order. If you returned an item recently, refunds can take 3-5 business days to appear. Please contact us at support@pageturner.books if you need further help."
 
 [account_login_issue]
 opener = "I'm sorry you're having trouble accessing your account."
+description = "Customer cannot log in or their account is locked."
 tools = ["set_customer_identity", "get_account_status"]
 temperature = 0.3
+fallback = "I wasn't able to retrieve your account details. Please try resetting your password at pageturner.books/reset or contact us at support@pageturner.books."
 
 [account_update]
+description = "Customer wants to update their account information such as email or delivery address."
 tools = ["set_customer_identity"]
 temperature = 0.3
+fallback = "I'm unable to update account details directly. Please visit your account settings at pageturner.books/account or contact us at support@pageturner.books."
 
 [book_recommendation]
+description = "Customer asking for book recommendations based on preferences or past reads."
 tools = []
 temperature = 0.8
 
 [book_availability]
+description = "Customer asking whether a specific book is in stock or when it will be available."
 tools = ["check_book_availability", "get_restock_date"]
 temperature = 0.1
+fallback = "I wasn't able to find that title in our catalogue. It may be listed under a slightly different name — try searching on pageturner.books or contact us at support@pageturner.books."
 
 [complaint]
 opener = "I sincerely apologise for the trouble you've experienced."
+description = "Customer expressing dissatisfaction or frustration about an order, delivery, or service."
 tools = ["set_customer_identity", "check_order_status", "report_delivery_issue"]
 temperature = 0.6
+fallback = "I wasn't able to retrieve your order details to investigate further. Please contact us directly at support@pageturner.books and reference your order ID — our team will prioritise your case."
 
 [promo_enquiry]
+description = "Customer asking about promotional or discount codes."
 tools = ["validate_promo_code"]
 temperature = 0.1
+fallback = "I wasn't able to validate that code. It may have expired or been entered incorrectly. Check our latest offers at pageturner.books/offers."
 
 [loyalty_enquiry]
+description = "Customer asking about their loyalty points balance or rewards tier."
 tools = ["set_customer_identity", "get_loyalty_status"]
 temperature = 0.3
+fallback = "I wasn't able to find a loyalty account for that email. If you've recently joined the programme, it may take 24 hours to activate. Contact us at support@pageturner.books if the issue persists."
 
 [digital_access_issue]
 opener = "I'm sorry you're having trouble accessing your digital purchase."
+description = "Customer cannot access or download a digital product they purchased."
 tools = ["set_customer_identity", "get_digital_purchase", "resend_download_link"]
 temperature = 0.3
+fallback = "I wasn't able to locate a digital purchase for that email and title. Please contact us at support@pageturner.books with your order confirmation and we'll restore your access."
 
 [gift_order_enquiry]
+description = "Customer asking about the status or details of a gift order they sent."
 tools = ["check_gift_order"]
 temperature = 0.3
+fallback = "I wasn't able to find a gift order with those details. Please check the gift code in your confirmation email or contact us at support@pageturner.books."
 
 [general_enquiry]
+description = "General question about PageTurner Books not covered by a more specific intent."
 tools = []
 temperature = 0.4

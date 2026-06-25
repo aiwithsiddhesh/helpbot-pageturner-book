@@ -111,7 +111,7 @@ def _handle_message(
     conversation.add_user(user_input)
     print("HelpBot: ", end="", flush=True)
     opener = _INTENT_OPENERS.get(intent, "")
-    result = bot.chat_streaming(conversation, opener=opener, temperature=temperature, tools=tools)
+    result = bot.chat_streaming(conversation, opener=opener, temperature=temperature, tools=tools, intent=intent)
     total_calls = result.api_calls + 1  # +1 for detect_intent()
     cache_info = f", Cache Created: {result.cache_creation_tokens}, Cache Read: {result.cache_read_tokens}" if (result.cache_creation_tokens or result.cache_read_tokens) else ""
     print(f"(API Calls: {total_calls} | Input Tokens: {result.input_tokens}, Output Tokens: {result.output_tokens}, Total Tokens: {result.total_tokens}{cache_info})\n")
