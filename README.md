@@ -15,6 +15,7 @@ pip install -e .
 
 cp .env.example .env
 # Edit .env and set ANTHROPIC_API_KEY=your-key-here
+# Optional: set BREVO_API_KEY and SENDER_EMAIL to enable OTP identity verification
 ```
 
 ## Running
@@ -27,6 +28,8 @@ python eval_intent.py   # run intent classification eval (~37 API calls)
 **Runtime commands:**
 - `exit` — quit (prints a session token + cache summary on exit)
 
+At startup, the bot prompts for email-based OTP verification (requires Brevo credentials). Press Enter to skip and continue as a guest — account-specific tools will prompt for identity when needed.
+
 ## How It Works
 
 Every message goes through a three-step pipeline:
@@ -36,6 +39,10 @@ Every message goes through a three-step pipeline:
 3. **Streamed response** — the reply streams to the terminal with optional tone prefilling for empathy-sensitive intents
 
 Per-turn stats (API calls, tokens, cache hits/misses) are printed after each response. A full session summary prints on exit.
+
+## Security
+
+Account-sensitive tools (`check_order_status`, `cancel_order`, `get_refund_status`, etc.) are protected — they require a verified session before the model can call them. The loader enforces this before dispatching to any tool, and rate-limits each session to 5 protected-tool calls. Every tool call is appended to `audit.log` (gitignored) with timestamp, identity, tool name, inputs, and outcome.
 
 ## Prompt Caching
 
@@ -58,14 +65,16 @@ helpbot/
 ├── output.py           # detect_intent() — cached intent classification
 ├── registry.py         # Loads registry.toml → INTENT_REGISTRY
 ├── registry.toml       # Intent → tools + opener + temperature (add intents here)
+├── otp.py              # OTP generation + Brevo email delivery
+├── utils.py            # _with_retry() — exponential backoff on rate limit errors
 ├── db/
 │   ├── schema.sql      # SQLite schema
 │   ├── seed.sql        # Sample data
-│   └── __init__.py     # get_connection() — lazy DB init
+│   └── __init__.py     # get_connection() — lazy DB init, commit/rollback context manager
 └── tools/
     ├── engine/
     │   ├── base.py     # Tool ABC — define properties + run()
-    │   └── loader.py   # Auto-discovery + load_schemas() / run_tool()
+    │   └── loader.py   # Auto-discovery, session/rate-limit guard, audit logging
     └── tools_catalog/  # One file per domain (books, orders, returns, …)
 eval_intent.py          # Intent classification eval harness (80% pass threshold)
 ```
@@ -87,10 +96,12 @@ eval_intent.py          # Intent classification eval harness (80% pass threshold
        """One-sentence description used as the tool description."""
        properties = {"param": "What this parameter means."}
 
-       def run(self, param: str) -> dict:
+       def run(self, param: str, session_email: str | None = None) -> dict:
            return {"result": ...}
    ```
-   The class name becomes the tool name (`MyToolName` → `my_tool_name`). No registration needed — tools are auto-discovered.
+   The class name becomes the tool name (`MyToolName` → `my_tool_name`). No registration needed — tools are auto-discovered. Always accept `session_email` as a keyword argument; the loader injects it on every call.
+
+3. If the tool should require identity verification, add its name to `_PROTECTED_TOOLS` in `helpbot/tools/engine/loader.py`.
 
 ## Dependencies
 
@@ -99,5 +110,6 @@ eval_intent.py          # Intent classification eval harness (80% pass threshold
 | `anthropic` | Claude API client |
 | `pydantic` / `pydantic-settings` | Config validation and typed models |
 | `python-dotenv` | `.env` loading |
+| `sib-api-v3-sdk` | Brevo transactional email (OTP delivery) |
 
 Default model: `claude-haiku-4-5`

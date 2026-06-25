@@ -26,6 +26,8 @@ python eval_intent.py   # run intent classification eval (makes ~37 API calls)
 Runtime commands in the chat loop:
 - `exit` — quit (prints session token summary on exit)
 
+OTP identity flow runs at startup: if `BREVO_API_KEY` and `SENDER_EMAIL` are set in `.env`, the user can verify their email before chatting. Skip by pressing Enter — the session continues as guest.
+
 ## Architecture
 
 ### Entry points
@@ -72,6 +74,10 @@ Cache stats (`cache_creation_tokens`, `cache_read_tokens`) are tracked in `ChatR
 
 **To add a new tool:** create a class in `helpbot/tools/tools_catalog/` that inherits `Tool`, set `properties`, write `run()`. It is discovered automatically — no registration step.
 
+**`session_email` parameter contract:** Every `Tool.run()` receives `session_email: str | None` as a keyword argument (injected by `run_tool()`). Protected tools (those in `_PROTECTED_TOOLS` in `loader.py`) are gated: `run_tool()` rejects calls with no valid session before `run()` is ever invoked.
+
+**Security layer in `loader.py`:** `_PROTECTED_TOOLS` lists the tool names that require a verified identity. `run_tool()` checks session validity and rate-limits (5 calls per session) before dispatching. Every call is appended to `audit.log` with timestamp, identity, tool name, inputs, and outcome.
+
 ### Database layer
 
 `helpbot/db/__init__.py` — `get_connection()` returns a `sqlite3.Connection` (with `row_factory = sqlite3.Row`). The DB is initialised from `schema.sql` and `seed.sql` on first use.
@@ -92,7 +98,7 @@ Tables: `orders`, `return_eligibility`, `refunds`, `books`, `accounts`, `promo_c
 ## Key Patterns to Preserve
 
 - **Prefill / stop-sequence JSON extraction** (`_extract()`): The ` ```json ` prefill and ` ``` ` stop sequence are load-bearing — do not alter them.
-- **Tool-use loop** (`chat_streaming`): The `while True` loop handles multi-turn tool calls. The loop breaks only when `stop_reason != "tool_use"`.
+- **Tool-use loop** (`chat_streaming`): The `while True` loop handles multi-turn tool calls. The loop breaks only when `stop_reason != "tool_use"`. `MAX_TOOL_ROUNDS = 10` guards against infinite loops — raises `RuntimeError` if exceeded.
 - **Registry-driven dispatch** (`registry.toml`): Intent→tools→temperature mapping lives in TOML, not Python. Keep new intents there.
 - **Auto-discovery** (`loader.py`): `Tool` subclasses self-register via `_all_subclasses()`. Do not maintain a manual list.
 - **Cache safety** (`_call()`): Tool schemas are copied before attaching `cache_control` — never mutate the shared `_REGISTRY` dicts directly.
@@ -105,5 +111,8 @@ Tables: `orders`, `return_eligibility`, `refunds`, `books`, `accounts`, `promo_c
 | `anthropic` | Claude API client |
 | `pydantic` / `pydantic-settings` | Settings validation and typed models |
 | `python-dotenv` | `.env` loading (via `pydantic-settings`) |
+| `sib-api-v3-sdk` | Brevo transactional email (OTP delivery) |
+
+`utils._with_retry()` wraps any callable with up to 3 attempts and exponential backoff on `RateLimitError` / `APIStatusError`. Used in both `_call()` and `detect_intent()`.
 
 Default model: `claude-haiku-4-5` (fast, cheap — appropriate for a learning project).
