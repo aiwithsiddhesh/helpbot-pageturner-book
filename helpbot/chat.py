@@ -60,10 +60,6 @@ class HelpBot:
         temperature: float = 0.1,
         tools: list[dict] | None = None,
     ) -> ChatResult:
-        if opener:
-            print(opener, end="", flush=True)
-            conversation.add_assistant(opener)
-
         total_input = total_output = api_calls = 0
         total_cache_creation = total_cache_read = 0
         while True:
@@ -79,6 +75,8 @@ class HelpBot:
                 [conversation.add_tool_result(b.id, *run_tool(b.name, b.input)) for b in final.content if b.type == "tool_use"]
             else:
                 text = " ".join(b.text for b in final.content if b.type == "text")
+                if opener:
+                    text = opener + " " + text
                 conversation.add_assistant(text)
                 break
 

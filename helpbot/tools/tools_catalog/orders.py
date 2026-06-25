@@ -28,15 +28,17 @@ class CancelOrder(Tool):
     def run(self, order_id: str) -> dict:
         with get_connection() as conn:
             row = conn.execute("SELECT * FROM orders WHERE order_id = ?", (order_id.upper(),)).fetchone()
-        if not row:
-            return {"success": False, "reason": "Order not found.", "order_id": order_id}
-        if row["status"] != "processing":
-            return {
-                "success": False,
-                "reason": f"Order cannot be cancelled — it is already {row['status']}.",
-                "order_id": order_id,
-                "status": row["status"],
-            }
+            if not row:
+                return {"success": False, "reason": "Order not found.", "order_id": order_id}
+            if row["status"] != "processing":
+                return {
+                    "success": False,
+                    "reason": f"Order cannot be cancelled — it is already {row['status']}.",
+                    "order_id": order_id,
+                    "status": row["status"],
+                }
+            conn.execute("UPDATE orders SET status = 'cancelled' WHERE order_id = ?", (order_id.upper(),))
+            conn.commit()
         return {"success": True, "order_id": order_id, "message": "Order successfully cancelled. A refund will be processed within 3–5 business days."}
 
 
