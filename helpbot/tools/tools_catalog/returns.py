@@ -13,7 +13,7 @@ class CheckReturnEligibility(Tool):
             row = conn.execute("SELECT * FROM return_eligibility WHERE order_id = ?", (order_id.upper(),)).fetchone()
         if not row or (session_email and row["email"] != session_email):
             return {"found": False, "access_denied": True, "message": "No order found or access denied."}
-        return {"found": True, **dict(row)}
+        return {"found": True, **dict(row), "eligible": bool(row["eligible"])}
 
 
 class GetRefundStatus(Tool):
