@@ -45,7 +45,7 @@ class ReportOrderIssue(Tool):
     """Report a wrong item or missing item issue for a customer order. Use this for order content problems — wrong book received or items missing from the order."""
     properties = {
         "order_id": "The order ID with the issue, e.g. PT-1001",
-        "issue_type": "The type of issue: wrong_item or missing_item",
+        "issue_type": {"description": "The type of issue.", "enum": ["wrong_item", "missing_item"]},
         "details": "Brief description of the issue, e.g. which item was wrong or missing",
     }
 

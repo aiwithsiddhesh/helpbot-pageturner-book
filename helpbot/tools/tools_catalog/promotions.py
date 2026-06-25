@@ -13,7 +13,7 @@ class ValidatePromoCode(Tool):
             row = conn.execute("SELECT * FROM promo_codes WHERE code = ?", (code.upper().strip(),)).fetchone()
         if not row:
             return {"found": False, "code": code, "message": "This promo code does not exist."}
-        return {"found": True, **dict(row)}
+        return {"found": True, **dict(row), "valid": bool(row["valid"])}
 
 
 class GetLoyaltyStatus(Tool):
