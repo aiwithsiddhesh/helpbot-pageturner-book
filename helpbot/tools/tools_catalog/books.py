@@ -8,7 +8,7 @@ class CheckBookAvailability(Tool):
         "title": "The title of the book to check availability for.",
     }
 
-    def run(self, title: str) -> dict:
+    def run(self, title: str, session_email: str | None = None) -> dict:
         with get_connection() as conn:
             row = conn.execute("SELECT * FROM books WHERE title = ?", (title.lower().strip(),)).fetchone()
         if not row:
@@ -24,7 +24,7 @@ class GetRestockDate(Tool):
         "title": "The title of the out-of-stock book.",
     }
 
-    def run(self, title: str) -> dict:
+    def run(self, title: str, session_email: str | None = None) -> dict:
         with get_connection() as conn:
             row = conn.execute(
                 "SELECT restock_date, restock_confidence FROM books WHERE title = ?",

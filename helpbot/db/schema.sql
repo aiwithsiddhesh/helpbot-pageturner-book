@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS orders (
     order_id        TEXT PRIMARY KEY,
+    email           TEXT NOT NULL,
     status          TEXT NOT NULL,
     carrier         TEXT,
     tracking        TEXT,
@@ -10,6 +11,7 @@ CREATE TABLE IF NOT EXISTS orders (
 
 CREATE TABLE IF NOT EXISTS return_eligibility (
     order_id        TEXT PRIMARY KEY,
+    email           TEXT NOT NULL,
     eligible        INTEGER NOT NULL,
     reason          TEXT NOT NULL,
     delivered_on    TEXT
@@ -17,6 +19,7 @@ CREATE TABLE IF NOT EXISTS return_eligibility (
 
 CREATE TABLE IF NOT EXISTS refunds (
     order_id        TEXT PRIMARY KEY,
+    email           TEXT NOT NULL,
     stage           TEXT NOT NULL,
     amount          REAL NOT NULL,
     method          TEXT NOT NULL,

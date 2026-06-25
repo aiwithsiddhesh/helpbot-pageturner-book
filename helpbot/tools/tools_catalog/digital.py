@@ -9,7 +9,9 @@ class GetDigitalPurchase(Tool):
         "product_title": "The title of the digital product.",
     }
 
-    def run(self, email: str, product_title: str) -> dict:
+    def run(self, email: str, product_title: str, session_email: str | None = None) -> dict:
+        if session_email and email.lower().strip() != session_email:
+            return {"owned": False, "email": email, "product_title": product_title, "message": "Access denied — email does not match session identity."}
         with get_connection() as conn:
             row = conn.execute(
                 "SELECT * FROM digital_purchases WHERE email = ? AND product_title = ?",
@@ -27,7 +29,7 @@ class ResendDownloadLink(Tool):
         "product_title": "The title of the digital product.",
     }
 
-    def run(self, email: str, product_title: str) -> dict:
+    def run(self, email: str, product_title: str, session_email: str | None = None) -> dict:
         return {
             "success": True,
             "email": email,

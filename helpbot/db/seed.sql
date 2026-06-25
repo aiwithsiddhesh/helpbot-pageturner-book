@@ -1,18 +1,18 @@
-INSERT OR IGNORE INTO orders VALUES ('PT-1001', 'in_transit', 'FedEx', 'FX123456789', '2026-06-27', NULL, NULL);
-INSERT OR IGNORE INTO orders VALUES ('PT-1002', 'delivered', 'UPS', 'UP987654321', NULL, NULL, '2026-06-22');
-INSERT OR IGNORE INTO orders VALUES ('PT-1003', 'processing', NULL, NULL, NULL, '2026-06-25', NULL);
-INSERT OR IGNORE INTO orders VALUES ('PT-1004', 'shipped', 'DHL', 'DH456789123', '2026-06-28', NULL, NULL);
-INSERT OR IGNORE INTO orders VALUES ('PT-1005', 'delivered', 'Royal Mail', 'RM111222333', NULL, NULL, '2026-06-20');
+INSERT OR IGNORE INTO orders VALUES ('PT-1001', 'john.doe@example.com', 'in_transit', 'FedEx', 'FX123456789', '2026-06-27', NULL, NULL);
+INSERT OR IGNORE INTO orders VALUES ('PT-1002', 'jane.smith@example.com', 'delivered', 'UPS', 'UP987654321', NULL, NULL, '2026-06-22');
+INSERT OR IGNORE INTO orders VALUES ('PT-1003', 'john.doe@example.com', 'processing', NULL, NULL, NULL, '2026-06-25', NULL);
+INSERT OR IGNORE INTO orders VALUES ('PT-1004', 'bob.jones@example.com', 'shipped', 'DHL', 'DH456789123', '2026-06-28', NULL, NULL);
+INSERT OR IGNORE INTO orders VALUES ('PT-1005', 'jane.smith@example.com', 'delivered', 'Royal Mail', 'RM111222333', NULL, NULL, '2026-06-20');
 
-INSERT OR IGNORE INTO return_eligibility VALUES ('PT-1001', 1, 'Within 30-day return window.', '2026-06-10');
-INSERT OR IGNORE INTO return_eligibility VALUES ('PT-1002', 0, 'Return window has expired — order was delivered more than 30 days ago.', '2026-05-01');
-INSERT OR IGNORE INTO return_eligibility VALUES ('PT-1003', 0, 'Order has not been delivered yet — cannot initiate a return.', NULL);
-INSERT OR IGNORE INTO return_eligibility VALUES ('PT-1004', 0, 'Return already processed and refund issued for this order.', NULL);
-INSERT OR IGNORE INTO return_eligibility VALUES ('PT-1005', 1, 'Within 30-day return window.', '2026-06-20');
+INSERT OR IGNORE INTO return_eligibility VALUES ('PT-1001', 'john.doe@example.com', 1, 'Within 30-day return window.', '2026-06-10');
+INSERT OR IGNORE INTO return_eligibility VALUES ('PT-1002', 'jane.smith@example.com', 0, 'Return window has expired — order was delivered more than 30 days ago.', '2026-05-01');
+INSERT OR IGNORE INTO return_eligibility VALUES ('PT-1003', 'john.doe@example.com', 0, 'Order has not been delivered yet — cannot initiate a return.', NULL);
+INSERT OR IGNORE INTO return_eligibility VALUES ('PT-1004', 'bob.jones@example.com', 0, 'Return already processed and refund issued for this order.', NULL);
+INSERT OR IGNORE INTO return_eligibility VALUES ('PT-1005', 'jane.smith@example.com', 1, 'Within 30-day return window.', '2026-06-20');
 
-INSERT OR IGNORE INTO refunds VALUES ('PT-1002', 'paid', 24.99, 'original payment method', '2026-06-15', NULL, NULL);
-INSERT OR IGNORE INTO refunds VALUES ('PT-1004', 'approved', 18.50, 'original payment method', NULL, '2026-06-26', NULL);
-INSERT OR IGNORE INTO refunds VALUES ('PT-1005', 'received', 12.00, 'original payment method', NULL, NULL, '2026-06-23');
+INSERT OR IGNORE INTO refunds VALUES ('PT-1002', 'jane.smith@example.com', 'paid', 24.99, 'original payment method', '2026-06-15', NULL, NULL);
+INSERT OR IGNORE INTO refunds VALUES ('PT-1004', 'bob.jones@example.com', 'approved', 18.50, 'original payment method', NULL, '2026-06-26', NULL);
+INSERT OR IGNORE INTO refunds VALUES ('PT-1005', 'jane.smith@example.com', 'received', 12.00, 'original payment method', NULL, NULL, '2026-06-23');
 
 INSERT OR IGNORE INTO books VALUES ('the midnight library', 'in_stock', 14, 'paperback,hardcover,ebook', NULL, NULL);
 INSERT OR IGNORE INTO books VALUES ('atomic habits', 'in_stock', 3, 'paperback,ebook', NULL, NULL);

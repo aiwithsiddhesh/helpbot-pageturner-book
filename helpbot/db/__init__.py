@@ -1,4 +1,5 @@
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
 
 _DB_PATH = Path(__file__).parent / "helpbot.db"
@@ -14,9 +15,17 @@ def _init() -> None:
     conn.close()
 
 
-def get_connection() -> sqlite3.Connection:
+@contextmanager
+def get_connection():
     if not _DB_PATH.exists():
         _init()
     conn = sqlite3.connect(_DB_PATH)
     conn.row_factory = sqlite3.Row
-    return conn
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
