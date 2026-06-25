@@ -38,7 +38,6 @@ class CancelOrder(Tool):
                     "status": row["status"],
                 }
             conn.execute("UPDATE orders SET status = 'cancelled' WHERE order_id = ?", (order_id.upper(),))
-            conn.commit()
         return {"success": True, "order_id": order_id, "message": "Order successfully cancelled. A refund will be processed within 3–5 business days."}
 
 
