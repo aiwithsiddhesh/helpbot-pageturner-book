@@ -14,3 +14,7 @@ wheels/
 
 # Claude
 .claude/
+
+# Generated at runtime
+helpbot/db/helpbot.db
+audit.log
