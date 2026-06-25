@@ -16,7 +16,7 @@ from helpbot.chat import ChatResult
 _INTENT_OPENERS: dict[str, str] = {
     intent: cfg["opener"]
     for intent, cfg in INTENT_REGISTRY.items()
-    if cfg["opener"]
+    if cfg.get("opener")
 }
 
 

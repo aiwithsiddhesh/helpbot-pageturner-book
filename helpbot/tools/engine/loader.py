@@ -33,6 +33,9 @@ def _all_subclasses(cls):
 
 def load_schemas(tool_names: list[str]) -> list[dict]:
     _load_all()
+    missing = [n for n in tool_names if n not in _REGISTRY]
+    if missing:
+        raise ValueError(f"Unknown tool(s) referenced in registry.toml: {missing}. Check tools_catalog/ for missing implementations.")
     return [_REGISTRY[name].schema for name in tool_names]
 
 
