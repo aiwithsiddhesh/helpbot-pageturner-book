@@ -3,6 +3,7 @@ import anthropic
 from helpbot.config import Settings, SYSTEM_PROMPT
 from helpbot.conversation import Conversation
 from helpbot.tools import run_tool
+from helpbot.utils import _with_retry
 
 
 class ChatResult(BaseModel):
@@ -40,18 +41,21 @@ class HelpBot:
         if tools:
             cached_tools = tools[:-1] + [{**tools[-1], "cache_control": {"type": "ephemeral"}}]
 
-        with self._client.messages.stream(
-            model=self._settings.model,
-            max_tokens=self._settings.max_tokens,
-            system=cached_system,
-            temperature=temperature,
-            messages=messages,
-            **({"tools": cached_tools} if cached_tools else {}),
-        ) as stream:
-            for chunk in stream.text_stream:
-                print(chunk, end="", flush=True)
-            print()
-            return stream.get_final_message()
+        def _do_call():
+            with self._client.messages.stream(
+                model=self._settings.model,
+                max_tokens=self._settings.max_tokens,
+                system=cached_system,
+                temperature=temperature,
+                messages=messages,
+                **({"tools": cached_tools} if cached_tools else {}),
+            ) as stream:
+                for chunk in stream.text_stream:
+                    print(chunk, end="", flush=True)
+                print()
+                return stream.get_final_message()
+
+        return _with_retry(_do_call)
 
     def chat_streaming(
         self,
