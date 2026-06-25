@@ -50,9 +50,12 @@ class HelpBot:
                 messages=messages,
                 **({"tools": cached_tools} if cached_tools else {}),
             ) as stream:
+                streamed = False
                 for chunk in stream.text_stream:
                     print(chunk, end="", flush=True)
-                print()
+                    streamed = True
+                if streamed:
+                    print()
                 return stream.get_final_message()
 
         return _with_retry(_do_call)
