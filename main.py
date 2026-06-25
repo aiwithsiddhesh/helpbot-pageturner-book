@@ -70,7 +70,7 @@ def _run_otp_flow(settings: Settings) -> None:
             print("Code has expired. Continuing as guest.")
             return
         if code == otp:
-            set_session_email(email)
+            set_session_email(email, verified=True)
             print("Identity verified.")
             return
         remaining = 2 - attempt

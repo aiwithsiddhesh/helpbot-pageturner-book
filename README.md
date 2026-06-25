@@ -42,7 +42,12 @@ Per-turn stats (API calls, tokens, cache hits/misses) are printed after each res
 
 ## Security
 
-Account-sensitive tools (`check_order_status`, `cancel_order`, `get_refund_status`, etc.) are protected — they require a verified session before the model can call them. The loader enforces this before dispatching to any tool, and rate-limits each session to 5 protected-tool calls. Every tool call is appended to `audit.log` (gitignored) with timestamp, identity, tool name, inputs, and outcome.
+Sessions have two tiers:
+
+- **OTP-verified** (`verified=True`) — set only when the user completes the email OTP flow at startup. Unlocks protected tools (`check_order_status`, `cancel_order`, `get_refund_status`, etc.).
+- **Email-recorded** (`verified=False`) — set when the model calls `set_customer_identity` during chat (e.g. the user mentions their email mid-conversation). Stores the email for greetings and lookup tools, but does **not** unlock protected tools.
+
+The loader enforces the tier check before dispatching to any protected tool, and rate-limits verified sessions to 5 protected-tool calls. Every tool call is appended to `audit.log` (gitignored) with timestamp, identity, tool name, inputs, and outcome.
 
 ## Prompt Caching
 
@@ -67,7 +72,7 @@ helpbot/
 ├── registry.py         # Loads registry.toml → INTENT_REGISTRY
 ├── registry.toml       # Intent → tools + opener + temperature + description + fallback
 ├── otp.py              # OTP generation + Brevo email delivery
-├── utils.py            # _with_retry() — exponential backoff on rate limit errors
+├── utils.py            # _with_retry() — exponential backoff on rate limit, status, and connection errors
 ├── db/
 │   ├── schema.sql      # SQLite schema
 │   ├── seed.sql        # Sample data

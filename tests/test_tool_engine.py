@@ -60,13 +60,20 @@ class RunToolSecurityTests(unittest.TestCase):
         self.assertFalse(is_error)
 
     def test_protected_tool_allowed_with_session(self) -> None:
-        set_session_email("john.doe@example.com")
+        set_session_email("john.doe@example.com", verified=True)
         result_json, is_error = run_tool("check_order_status", {"order_id": "PT-1001"})
         result = json.loads(result_json)
         self.assertNotIn("needs_identity", result)
 
+    def test_protected_tool_blocked_with_unverified_session(self) -> None:
+        set_session_email("john.doe@example.com", verified=False)
+        result_json, is_error = run_tool("check_order_status", {"order_id": "PT-1001"})
+        result = json.loads(result_json)
+        self.assertTrue(result.get("needs_identity"))
+        self.assertFalse(is_error)
+
     def test_rate_limit_enforced(self) -> None:
-        set_session_email("john.doe@example.com")
+        set_session_email("john.doe@example.com", verified=True)
         for _ in range(loader_module._RATE_LIMIT):
             run_tool("check_order_status", {"order_id": "PT-1001"})
         result_json, is_error = run_tool("check_order_status", {"order_id": "PT-1001"})

@@ -12,6 +12,7 @@ _REGISTRY: dict[str, Tool] = {}
 _LOADED = False
 _SESSION_EMAIL: str | None = None
 _SESSION_TIMESTAMP: float | None = None
+_SESSION_VERIFIED: bool = False  # True only when set via OTP flow
 _RATE_COUNTER: int = 0
 
 _SESSION_TIMEOUT = 1800  # 30 minutes
@@ -24,23 +25,25 @@ _PROTECTED_TOOLS = {
 _AUDIT_LOG = Path(__file__).parent.parent.parent.parent / "audit.log"
 
 
-def set_session_email(email: str) -> None:
-    global _SESSION_EMAIL, _SESSION_TIMESTAMP, _RATE_COUNTER
+def set_session_email(email: str, verified: bool = False) -> None:
+    global _SESSION_EMAIL, _SESSION_TIMESTAMP, _SESSION_VERIFIED, _RATE_COUNTER
     _SESSION_EMAIL = email.lower().strip()
     _SESSION_TIMESTAMP = time.time()
+    _SESSION_VERIFIED = verified
     _RATE_COUNTER = 0
 
 
 def _is_session_valid() -> bool:
-    if _SESSION_EMAIL is None or _SESSION_TIMESTAMP is None:
+    if not _SESSION_VERIFIED or _SESSION_EMAIL is None or _SESSION_TIMESTAMP is None:
         return False
     return (time.time() - _SESSION_TIMESTAMP) < _SESSION_TIMEOUT
 
 
 def _expire_session() -> None:
-    global _SESSION_EMAIL, _SESSION_TIMESTAMP
+    global _SESSION_EMAIL, _SESSION_TIMESTAMP, _SESSION_VERIFIED
     _SESSION_EMAIL = None
     _SESSION_TIMESTAMP = None
+    _SESSION_VERIFIED = False
 
 
 def _audit(tool_name: str, input: dict, session_email: str | None, outcome: str) -> None:

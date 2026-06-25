@@ -31,9 +31,9 @@ OTP identity flow runs at startup: if `BREVO_API_KEY` and `SENDER_EMAIL` are set
 ## Tests
 
 ```bash
-python -m pytest tests/                        # run all tests
-python -m pytest tests/test_tool_engine.py     # run a single test file
-python -m pytest tests/ -k "test_rate_limit"   # run a single test by name
+python -m unittest discover -s tests           # run all tests
+python -m unittest test_tool_engine            # run a single test file (from tests/)
+python -m unittest test_tool_engine.RunToolSecurityTests.test_rate_limit_enforced  # single test
 ```
 
 The test suite is unit/integration only — no live API calls. `test_tool_engine.py` resets loader globals in `setUp` via direct mutation of `loader_module.*` to avoid cross-test contamination.
@@ -44,7 +44,7 @@ The test suite is unit/integration only — no live API calls. `test_tool_engine
 
 All Claude API calls flow through two entry points:
 
-1. **`helpbot/output.py` — `detect_intent()`**: Classifies each user message into one of 15 intents via a single API call. Uses the prefill + stop sequence pattern — the static classification prompt is cached via `cache_control: ephemeral`; only the dynamic customer message is sent uncached each time.
+1. **`helpbot/output.py` — `detect_intent()`**: Classifies each user message into one of 16 intents via a single API call. Uses the prefill + stop sequence pattern — the static classification prompt is cached via `cache_control: ephemeral`; only the dynamic customer message is sent uncached each time.
 
 2. **`helpbot/chat.py` — `HelpBot.chat_streaming()`**: Production streaming path. Accepts an `opener` string injected as an assistant prefill for tone steering. Runs a tool-use loop — keeps calling `_call()` and appending tool results to the conversation until `stop_reason != "tool_use"`. System prompt and tool schemas are cached via `cache_control: ephemeral` on every call.
 
@@ -86,7 +86,7 @@ Cache stats (`cache_creation_tokens`, `cache_read_tokens`) are tracked in `ChatR
 
 **`session_email` parameter contract:** Every `Tool.run()` receives `session_email: str | None` as a keyword argument (injected by `run_tool()`). Protected tools (those in `_PROTECTED_TOOLS` in `loader.py`) are gated: `run_tool()` rejects calls with no valid session before `run()` is ever invoked.
 
-**Security layer in `loader.py`:** `_PROTECTED_TOOLS` lists the tool names that require a verified identity. `run_tool()` checks session validity and rate-limits (5 calls per session) before dispatching. Every call is appended to `audit.log` with timestamp, identity, tool name, inputs, and outcome.
+**Security layer in `loader.py`:** `_PROTECTED_TOOLS` lists the tool names that require a verified identity. Sessions have two tiers: `_SESSION_VERIFIED = True` (set only by the OTP flow in `main.py` via `set_session_email(email, verified=True)`) grants access to protected tools; `_SESSION_VERIFIED = False` (set by `SetCustomerIdentity` tool during chat) records the email for lookup/greeting purposes only and does not unlock protected tools. `run_tool()` checks `_is_session_valid()` (which requires `_SESSION_VERIFIED`) and rate-limits (5 calls per session) before dispatching. Every call is appended to `audit.log` with timestamp, identity, tool name, inputs, and outcome.
 
 ### Database layer
 
@@ -123,6 +123,6 @@ Tables: `orders`, `return_eligibility`, `refunds`, `books`, `accounts`, `promo_c
 | `python-dotenv` | `.env` loading (via `pydantic-settings`) |
 | `sib-api-v3-sdk` | Brevo transactional email (OTP delivery) |
 
-`utils._with_retry()` wraps any callable with up to 3 attempts and exponential backoff on `RateLimitError` / `APIStatusError`. Used in both `_call()` and `detect_intent()`.
+`utils._with_retry()` wraps any callable with up to 3 attempts and exponential backoff on `RateLimitError`, `APIStatusError`, and `APIConnectionError`. Used in both `_call()` and `detect_intent()`.
 
 Default model: `claude-haiku-4-5` (fast, cheap — appropriate for a learning project).

@@ -24,6 +24,14 @@ class CheckGiftOrder(Tool):
         if not row:
             return {"found": False, "message": "No gift order found with the provided details."}
 
-        data = dict(row)
-        data["items"] = data["items"].split(",")
-        return {"found": True, **data}
+        return {
+            "found": True,
+            "gift_code": row["gift_code"],
+            "status": row["status"],
+            "recipient_name": row["recipient_name"],
+            "recipient_email": row["recipient_email"],
+            "items": row["items"].split(","),
+            "delivered_on": row["delivered_on"],
+            "estimated_delivery": row["estimated_delivery"],
+            "estimated_dispatch": row["estimated_dispatch"],
+        }

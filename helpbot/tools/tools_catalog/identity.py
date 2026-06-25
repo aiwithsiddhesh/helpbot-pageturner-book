@@ -3,11 +3,12 @@ from helpbot.tools.engine.loader import set_session_email
 
 
 class SetCustomerIdentity(Tool):
-    """Set the customer's verified email as their session identity. Call this tool when the customer provides their email address for identity verification before accessing account or order data."""
+    """Record the email address the customer has provided so it can be used to look up their data. This does NOT grant access to protected tools — the customer must have completed email verification at session start for that. Call this when the customer mentions their email so you can address them correctly and pass it to lookup tools."""
     properties = {
-        "email": "The customer's email address to set as session identity.",
+        "email": "The customer's email address.",
     }
 
     def run(self, email: str, session_email: str | None = None) -> dict:
-        set_session_email(email)
-        return {"success": True, "message": f"Identity set for {email}. You can now access your account and order details."}
+        # verified=False — only the OTP flow in main.py may grant a verified session
+        set_session_email(email, verified=False)
+        return {"success": True, "message": f"Email recorded as {email}. Note: to access protected account data, identity must be verified via the email OTP sent at session start."}
