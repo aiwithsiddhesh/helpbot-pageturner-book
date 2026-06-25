@@ -18,17 +18,9 @@ class Conversation(BaseModel):
         """For tool_use turns — content is a list of blocks, not plain text."""
         self.messages.append(Message(role="assistant", content=content))
 
-    def add_tool_result(self, tool_use_id: str, content: str, is_error: bool = False) -> None:
-        """Appends a user-role tool_result message back to Claude."""
-        self.messages.append(Message(
-            role="user",
-            content=[{
-                "type": "tool_result",
-                "tool_use_id": tool_use_id,
-                "content": content,
-                "is_error": is_error,
-            }]
-        ))
+    def add_tool_results(self, results: list[dict]) -> None:
+        """Appends all tool results for one turn as a single user message."""
+        self.messages.append(Message(role="user", content=results))
 
     def clear(self) -> None:
         self.messages.clear()
