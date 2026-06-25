@@ -26,5 +26,5 @@ class Tool(ABC):
         }
 
     @abstractmethod
-    def run(self, **kwargs) -> dict:
+    def run(self, *args, session_email: str | None = None, **kwargs) -> dict:
         ...

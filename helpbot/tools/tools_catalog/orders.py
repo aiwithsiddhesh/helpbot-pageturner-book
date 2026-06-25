@@ -11,11 +11,11 @@ class CheckOrderStatus(Tool):
         "order_id": "The order ID, e.g. PT-1001",
     }
 
-    def run(self, order_id: str) -> dict:
+    def run(self, order_id: str, session_email: str | None = None) -> dict:
         with get_connection() as conn:
             row = conn.execute("SELECT * FROM orders WHERE order_id = ?", (order_id.upper(),)).fetchone()
-        if not row:
-            return {"found": False, "order_id": order_id}
+        if not row or (session_email and row["email"] != session_email):
+            return {"found": False, "access_denied": True, "message": "No order found or access denied."}
         return {"found": True, **dict(row)}
 
 
@@ -25,11 +25,11 @@ class CancelOrder(Tool):
         "order_id": "The order ID to cancel, e.g. PT-1001",
     }
 
-    def run(self, order_id: str) -> dict:
+    def run(self, order_id: str, session_email: str | None = None) -> dict:
         with get_connection() as conn:
             row = conn.execute("SELECT * FROM orders WHERE order_id = ?", (order_id.upper(),)).fetchone()
-            if not row:
-                return {"success": False, "reason": "Order not found.", "order_id": order_id}
+            if not row or (session_email and row["email"] != session_email):
+                return {"success": False, "access_denied": True, "message": "No order found or access denied."}
             if row["status"] != "processing":
                 return {
                     "success": False,
@@ -49,7 +49,7 @@ class ReportOrderIssue(Tool):
         "details": "Brief description of the issue, e.g. which item was wrong or missing",
     }
 
-    def run(self, order_id: str, issue_type: str, details: str = "") -> dict:
+    def run(self, order_id: str, issue_type: str, details: str = "", session_email: str | None = None) -> dict:
         case_id = "CASE-" + "".join(random.choices(string.digits, k=6))
         return {
             "case_id": case_id,

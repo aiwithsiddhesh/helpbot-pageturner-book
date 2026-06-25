@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     anthropic_api_key: str
     model: str = "claude-haiku-4-5"
     max_tokens: int = Field(default=1000, gt=0)
+    brevo_api_key: str = ""
+    sender_email: str = ""
 
 
 SYSTEM_PROMPT = """Act as HelpBot, PageTurner Books' dedicated customer support agent. \

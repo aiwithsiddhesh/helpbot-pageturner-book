@@ -10,7 +10,7 @@ class CheckGiftOrder(Tool):
         "recipient_email": "The email address of the gift recipient.",
     }
 
-    def run(self, gift_code: str = "", recipient_name: str = "", recipient_email: str = "") -> dict:
+    def run(self, gift_code: str = "", recipient_name: str = "", recipient_email: str = "", session_email: str | None = None) -> dict:
         with get_connection() as conn:
             if gift_code:
                 row = conn.execute("SELECT * FROM gift_orders WHERE gift_code = ?", (gift_code.upper(),)).fetchone()

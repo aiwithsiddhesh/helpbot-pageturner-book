@@ -1,4 +1,5 @@
 import sys
+import time
 from dataclasses import dataclass, field
 import anthropic
 from pydantic import ValidationError
@@ -9,8 +10,9 @@ from helpbot import (
     detect_intent,
     INTENT_REGISTRY,
 )
-from helpbot.tools import load_schemas
+from helpbot.tools import load_schemas, set_session_email
 from helpbot.chat import ChatResult
+from helpbot.otp import generate_otp, send_otp
 
 
 _INTENT_OPENERS: dict[str, str] = {
@@ -45,6 +47,37 @@ class SessionStats:
         print(f"  Output tokens   : {self.output_tokens:,}")
         print(f"  Total tokens    : {total:,}")
         print("─────────────────────────────────────────────────────")
+
+
+def _run_otp_flow(settings: Settings) -> None:
+    email = input("Enter your email to verify identity (or press Enter to skip): ").strip()
+    if not email:
+        print("Continuing as guest. Some features will require identity verification.")
+        return
+
+    otp = generate_otp()
+    otp_expiry = time.time() + 300  # 5 minutes
+
+    sent = send_otp(email, otp, settings.brevo_api_key, settings.sender_email)
+    if not sent:
+        print("Could not send verification email. Continuing as guest.")
+        return
+
+    print(f"A verification code has been sent to {email}.")
+    for attempt in range(3):
+        code = input("Enter the code: ").strip()
+        if time.time() > otp_expiry:
+            print("Code has expired. Continuing as guest.")
+            return
+        if code == otp:
+            set_session_email(email)
+            print("Identity verified.")
+            return
+        remaining = 2 - attempt
+        if remaining > 0:
+            print(f"Incorrect code. {remaining} attempt(s) remaining.")
+
+    print("Too many failed attempts. Continuing as guest.")
 
 
 def _bootstrap() -> tuple[HelpBot, Conversation]:
@@ -90,6 +123,7 @@ def main() -> None:
     stats = SessionStats()
 
     print("Welcome to HelpBot! Type 'exit' to quit.")
+    _run_otp_flow(bot.settings)
     while True:
         user_input = input("You: ").strip()
 

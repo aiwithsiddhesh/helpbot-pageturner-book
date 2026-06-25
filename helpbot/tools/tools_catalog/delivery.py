@@ -11,7 +11,7 @@ class ReportDeliveryIssue(Tool):
         "issue_type": "The type of delivery issue: not_received, damaged, wrong_address, or partial_delivery",
     }
 
-    def run(self, order_id: str, issue_type: str) -> dict:
+    def run(self, order_id: str, issue_type: str, session_email: str | None = None) -> dict:
         case_id = "CASE-" + "".join(random.choices(string.digits, k=6))
         return {
             "case_id": case_id,

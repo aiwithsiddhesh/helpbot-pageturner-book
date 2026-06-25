@@ -2,12 +2,53 @@ from __future__ import annotations
 
 import importlib
 import json
+import time
+from datetime import datetime
 from pathlib import Path
 
 from helpbot.tools.engine.base import Tool
 
 _REGISTRY: dict[str, Tool] = {}
 _LOADED = False
+_SESSION_EMAIL: str | None = None
+_SESSION_TIMESTAMP: float | None = None
+_RATE_COUNTER: int = 0
+
+_SESSION_TIMEOUT = 1800  # 30 minutes
+_RATE_LIMIT = 5
+_PROTECTED_TOOLS = {
+    "check_order_status", "cancel_order", "check_return_eligibility",
+    "get_refund_status", "get_account_status", "get_loyalty_status",
+    "get_digital_purchase", "resend_download_link",
+}
+_AUDIT_LOG = Path(__file__).parent.parent.parent.parent / "audit.log"
+
+
+def set_session_email(email: str) -> None:
+    global _SESSION_EMAIL, _SESSION_TIMESTAMP, _RATE_COUNTER
+    _SESSION_EMAIL = email.lower().strip()
+    _SESSION_TIMESTAMP = time.time()
+    _RATE_COUNTER = 0
+
+
+def _is_session_valid() -> bool:
+    if _SESSION_EMAIL is None or _SESSION_TIMESTAMP is None:
+        return False
+    return (time.time() - _SESSION_TIMESTAMP) < _SESSION_TIMEOUT
+
+
+def _expire_session() -> None:
+    global _SESSION_EMAIL, _SESSION_TIMESTAMP
+    _SESSION_EMAIL = None
+    _SESSION_TIMESTAMP = None
+
+
+def _audit(tool_name: str, input: dict, session_email: str | None, outcome: str) -> None:
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    identity = session_email or "guest"
+    line = f"[{timestamp}] {identity} | {tool_name} | {json.dumps(input)} | {outcome}\n"
+    with open(_AUDIT_LOG, "a") as f:
+        f.write(line)
 
 
 def _load_all() -> None:
@@ -40,10 +81,28 @@ def load_schemas(tool_names: list[str]) -> list[dict]:
 
 
 def run_tool(name: str, input: dict) -> tuple[str, bool]:
+    global _RATE_COUNTER
     _load_all()
+
+    is_protected = name in _PROTECTED_TOOLS
+
+    if is_protected:
+        if not _is_session_valid():
+            _expire_session()
+            _audit(name, input, None, "needs_identity")
+            return json.dumps({"needs_identity": True, "message": "Please verify your identity before I can access your account details."}), False
+
+        if _RATE_COUNTER >= _RATE_LIMIT:
+            _audit(name, input, _SESSION_EMAIL, "rate_limited")
+            return json.dumps({"error": True, "message": "Too many requests in this session. Please contact support."}), True
+
+        _RATE_COUNTER += 1
+
     try:
         tool = _REGISTRY[name]
-        result = tool.run(**input)
+        result = tool.run(**input, session_email=_SESSION_EMAIL)
+        outcome = "denied" if result.get("access_denied") else "granted"
+        _audit(name, input, _SESSION_EMAIL, outcome)
         print(f"[Tool called: {name}({input})]")
         return json.dumps(result), False
     except KeyError:

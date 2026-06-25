@@ -8,7 +8,9 @@ class GetAccountStatus(Tool):
         "email": "The customer's email address.",
     }
 
-    def run(self, email: str) -> dict:
+    def run(self, email: str, session_email: str | None = None) -> dict:
+        if session_email and email.lower().strip() != session_email:
+            return {"found": False, "email": email, "message": "Access denied — email does not match session identity."}
         with get_connection() as conn:
             row = conn.execute("SELECT * FROM accounts WHERE email = ?", (email.lower().strip(),)).fetchone()
         if not row:
