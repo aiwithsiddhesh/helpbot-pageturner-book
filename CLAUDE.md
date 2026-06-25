@@ -20,13 +20,23 @@ cp .env.example .env
 
 ```bash
 python main.py          # run the chatbot
-python eval_intent.py   # run intent classification eval (makes ~37 API calls)
+python eval_intent.py   # run intent classification eval (makes ~43 API calls)
 ```
 
 Runtime commands in the chat loop:
 - `exit` — quit (prints session token summary on exit)
 
 OTP identity flow runs at startup: if `BREVO_API_KEY` and `SENDER_EMAIL` are set in `.env`, the user can verify their email before chatting. Skip by pressing Enter — the session continues as guest.
+
+## Tests
+
+```bash
+python -m pytest tests/                        # run all tests
+python -m pytest tests/test_tool_engine.py     # run a single test file
+python -m pytest tests/ -k "test_rate_limit"   # run a single test by name
+```
+
+The test suite is unit/integration only — no live API calls. `test_tool_engine.py` resets loader globals in `setUp` via direct mutation of `loader_module.*` to avoid cross-test contamination.
 
 ## Architecture
 
@@ -49,7 +59,7 @@ Request lifecycle in `_handle_message()`:
 4. `load_schemas(tool_names)` — fetches Anthropic tool schemas from the tool engine
 5. `bot.chat_streaming(..., tools=tools)` — streams the response, running tool calls if needed
 
-**To add a new intent:** add a `[new_intent]` block to `registry.toml` with `tools = [...]`, `temperature = X`, and an optional `opener`. No Python changes needed unless you also need a new tool.
+**To add a new intent:** add a `[new_intent]` block to `registry.toml` with `tools = [...]`, `temperature = X`, a `description` string (injected into the system prompt as `<intent_context>`), an optional `fallback` string (shown when tools return no data), and an optional `opener`. No Python changes needed unless you also need a new tool.
 
 ### Prompt caching
 
@@ -80,7 +90,7 @@ Cache stats (`cache_creation_tokens`, `cache_read_tokens`) are tracked in `ChatR
 
 ### Database layer
 
-`helpbot/db/__init__.py` — `get_connection()` returns a `sqlite3.Connection` (with `row_factory = sqlite3.Row`). The DB is initialised from `schema.sql` and `seed.sql` on first use.
+`helpbot/db/__init__.py` — `get_connection()` is a context manager that yields a `sqlite3.Connection` (with `row_factory = sqlite3.Row`), commits on exit, and rolls back on exception. The DB is re-initialised from `schema.sql` and `seed.sql` whenever `PRAGMA user_version` is below `_SCHEMA_VERSION` — bump that constant whenever the schema changes.
 
 Tables: `orders`, `return_eligibility`, `refunds`, `books`, `accounts`, `promo_codes`, `loyalty`, `digital_purchases`, `gift_orders`.
 
@@ -93,7 +103,7 @@ Tables: `orders`, `return_eligibility`, `refunds`, `books`, `accounts`, `promo_c
 
 ### Intent eval harness
 
-`eval_intent.py` — 37 labelled test cases covering all 15 intents plus edge cases. Run after any change to the classification prompt or `SYSTEM_PROMPT` to get an objective accuracy score. Exits with code 1 if accuracy drops below 80%. Record the baseline score in the file docstring after the first run.
+`eval_intent.py` — 43 labelled test cases covering all 16 intents plus edge cases. Run after any change to the classification prompt or registry descriptions to get an objective accuracy score. Exits with code 1 if accuracy drops below 80%. The current baseline (93.0%) is recorded in the file docstring — update it after any prompt change.
 
 ## Key Patterns to Preserve
 

@@ -22,7 +22,7 @@ cp .env.example .env
 
 ```bash
 python main.py          # run the chatbot
-python eval_intent.py   # run intent classification eval (~37 API calls)
+python eval_intent.py   # run intent classification eval (~43 API calls)
 ```
 
 **Runtime commands:**
@@ -34,7 +34,7 @@ At startup, the bot prompts for email-based OTP verification (requires Brevo cre
 
 Every message goes through a three-step pipeline:
 
-1. **Intent classification** — a cached API call classifies the message into one of 15 intents (order status, returns, book availability, complaints, etc.)
+1. **Intent classification** — a cached API call classifies the message into one of 16 intents (order status, returns, book availability, complaints, etc.)
 2. **Tool dispatch** — the intent maps to a set of tools and a temperature (both defined in `helpbot/registry.toml`); the model calls tools against a local SQLite database
 3. **Streamed response** — the reply streams to the terminal with optional tone prefilling for empathy-sensitive intents
 
@@ -59,12 +59,13 @@ Four layers of caching reduce latency and token costs across a session:
 
 ```
 helpbot/
-├── config.py           # Settings (pydantic-settings) + system prompt
+├── config.py           # Settings (pydantic-settings)
+├── prompts.py          # build_system_prompt() — base prompt + per-intent context injection
 ├── conversation.py     # Typed message history + conversation prefix caching
 ├── chat.py             # HelpBot class — streaming + tool-use loop + cache stats
 ├── output.py           # detect_intent() — cached intent classification
 ├── registry.py         # Loads registry.toml → INTENT_REGISTRY
-├── registry.toml       # Intent → tools + opener + temperature (add intents here)
+├── registry.toml       # Intent → tools + opener + temperature + description + fallback
 ├── otp.py              # OTP generation + Brevo email delivery
 ├── utils.py            # _with_retry() — exponential backoff on rate limit errors
 ├── db/
@@ -84,8 +85,10 @@ eval_intent.py          # Intent classification eval harness (80% pass threshold
 1. Add a block to `helpbot/registry.toml`:
    ```toml
    [my_new_intent]
-   opener = "Optional empathy opener string."
-   tools  = ["my_tool_name"]
+   description = "One-line summary injected into the system prompt for this intent."
+   fallback    = "Message shown to the customer when tools return no data."
+   opener      = "Optional empathy opener string."
+   tools       = ["my_tool_name"]
    temperature = 0.3
    ```
 2. If you need a new tool, create a class in `helpbot/tools/tools_catalog/`:
