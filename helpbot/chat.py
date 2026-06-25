@@ -80,7 +80,12 @@ class HelpBot:
 
             if final.stop_reason == "tool_use":
                 conversation.add_assistant_raw([b.model_dump() for b in final.content])
-                [conversation.add_tool_result(b.id, *run_tool(b.name, b.input)) for b in final.content if b.type == "tool_use"]
+                tool_results = []
+                for b in final.content:
+                    if b.type == "tool_use":
+                        content, is_error = run_tool(b.name, b.input)
+                        tool_results.append({"type": "tool_result", "tool_use_id": b.id, "content": content, "is_error": is_error})
+                conversation.add_tool_results(tool_results)
             else:
                 text = " ".join(b.text for b in final.content if b.type == "text")
                 if final.stop_reason == "max_tokens":
