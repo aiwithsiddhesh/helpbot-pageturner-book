@@ -5,6 +5,7 @@ import anthropic
 
 from helpbot.config import Settings
 from helpbot.registry import INTENT_REGISTRY
+from helpbot.utils import _with_retry
 
 
 # ---------------------------------------------------------------------------
@@ -43,7 +44,7 @@ _INTENT_STATIC_PREFIX = (
 
 def detect_intent(customer_message: str, settings: Settings, client: anthropic.Anthropic) -> str:
     """Classifies the message into one of the supported intents. Falls back to general_enquiry."""
-    response = client.messages.create(
+    response = _with_retry(lambda: client.messages.create(
         model=settings.model,
         max_tokens=500,
         messages=[
@@ -57,7 +58,7 @@ def detect_intent(customer_message: str, settings: Settings, client: anthropic.A
             {"role": "assistant", "content": "```json"},
         ],
         stop_sequences=["```"],
-    )
+    ))
     try:
         result = json.loads(response.content[0].text.strip())
     except (json.JSONDecodeError, IndexError, AttributeError):
