@@ -10,7 +10,10 @@ class CheckBookAvailability(Tool):
 
     def run(self, title: str, session_email: str | None = None) -> dict:
         with get_connection() as conn:
-            row = conn.execute("SELECT * FROM books WHERE title = ?", (title.lower().strip(),)).fetchone()
+            row = conn.execute(
+                "SELECT * FROM books WHERE LOWER(title) LIKE ?",
+                (f"%{title.lower().strip()}%",)
+            ).fetchone()
         if not row:
             return {"found": False, "title": title, "message": "This title is not in our catalogue."}
         data = dict(row)
@@ -27,8 +30,8 @@ class GetRestockDate(Tool):
     def run(self, title: str, session_email: str | None = None) -> dict:
         with get_connection() as conn:
             row = conn.execute(
-                "SELECT restock_date, restock_confidence FROM books WHERE title = ?",
-                (title.lower().strip(),)
+                "SELECT restock_date, restock_confidence FROM books WHERE LOWER(title) LIKE ?",
+                (f"%{title.lower().strip()}%",)
             ).fetchone()
         if not row or not row["restock_confidence"]:
             return {"found": False, "title": title, "message": "No restock information available for this title."}

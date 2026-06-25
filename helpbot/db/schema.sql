@@ -83,3 +83,5 @@ CREATE TABLE IF NOT EXISTS gift_orders (
     estimated_delivery  TEXT,
     estimated_dispatch  TEXT
 );
+
+PRAGMA user_version = 1;

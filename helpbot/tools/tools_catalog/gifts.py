@@ -17,7 +17,7 @@ class CheckGiftOrder(Tool):
             elif recipient_email:
                 row = conn.execute("SELECT * FROM gift_orders WHERE recipient_email = ?", (recipient_email.lower(),)).fetchone()
             elif recipient_name:
-                row = conn.execute("SELECT * FROM gift_orders WHERE LOWER(recipient_name) = ?", (recipient_name.lower(),)).fetchone()
+                row = conn.execute("SELECT * FROM gift_orders WHERE LOWER(recipient_name) LIKE ?", (f"%{recipient_name.lower()}%",)).fetchone()
             else:
                 return {"found": False, "message": "Please provide a gift code, recipient name, or recipient email."}
 

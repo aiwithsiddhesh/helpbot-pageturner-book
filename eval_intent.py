@@ -7,7 +7,7 @@ Each test case is (customer_message, expected_intent). The script calls
 detect_intent() for every case, compares against the expected label, and
 prints per-intent accuracy plus an overall score.
 
-Baseline (recorded after #22 system prompt rewrite): TBD — run once to establish.
+Baseline (recorded after #22 system prompt rewrite): 93.0% (40/43).
 Fail threshold: overall accuracy must be >= 80% or the script exits with code 1.
 """
 
@@ -134,17 +134,17 @@ def run_eval() -> None:
 
     overall = correct / total
 
-    print(f"\n{'─' * 60}")
+    print(f"\n{'-' * 60}")
     print("Per-intent results:")
     for intent in all_intents:
         results = per_intent[intent]
         intent_correct = sum(results)
         intent_total = len(results)
-        bar = "✓" * intent_correct + "✗" * (intent_total - intent_correct)
+        bar = "+" * intent_correct + "x" * (intent_total - intent_correct)
         print(f"  {intent:30s} {intent_correct}/{intent_total}  {bar}")
 
-    print(f"\n{'─' * 60}")
-    print(f"Overall: {correct}/{total} correct — {overall:.1%}")
+    print(f"\n{'-' * 60}")
+    print(f"Overall: {correct}/{total} correct -- {overall:.1%}")
     print(f"Threshold: {PASS_THRESHOLD:.0%}")
 
     if overall < PASS_THRESHOLD:
