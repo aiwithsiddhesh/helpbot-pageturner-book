@@ -30,6 +30,13 @@ class ResendDownloadLink(Tool):
     }
 
     def run(self, email: str, product_title: str, session_email: str | None = None) -> dict:
+        with get_connection() as conn:
+            row = conn.execute(
+                "SELECT owned FROM digital_purchases WHERE email = ? AND product_title = ?",
+                (email.lower().strip(), product_title.lower().strip()),
+            ).fetchone()
+        if not row or not row["owned"]:
+            return {"success": False, "email": email, "product_title": product_title, "message": "Cannot resend — no verified purchase found for this email and product."}
         return {
             "success": True,
             "email": email,
