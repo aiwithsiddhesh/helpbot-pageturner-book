@@ -64,9 +64,13 @@ class HelpBot:
         temperature: float = 0.1,
         tools: list[dict] | None = None,
     ) -> ChatResult:
-        total_input = total_output = api_calls = 0
+        MAX_TOOL_ROUNDS = 10
+        total_input = total_output = api_calls = rounds = 0
         total_cache_creation = total_cache_read = 0
         while True:
+            if rounds >= MAX_TOOL_ROUNDS:
+                raise RuntimeError(f"Tool-use loop exceeded {MAX_TOOL_ROUNDS} rounds — possible model loop.")
+            rounds += 1
             final = self._call(conversation.to_api_format(), temperature, tools)
             total_input += final.usage.input_tokens
             total_output += final.usage.output_tokens
