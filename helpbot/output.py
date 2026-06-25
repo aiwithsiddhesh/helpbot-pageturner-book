@@ -55,5 +55,8 @@ def detect_intent(customer_message: str, settings: Settings, client: anthropic.A
         ],
         stop_sequences=["```"],
     )
-    result = json.loads(response.content[0].text.strip())
+    try:
+        result = json.loads(response.content[0].text.strip())
+    except (json.JSONDecodeError, IndexError, AttributeError):
+        return "general_enquiry"
     return result.get("intent", "general_enquiry")
