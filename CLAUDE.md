@@ -36,7 +36,7 @@ python -m unittest test_tool_engine            # run a single test file (from te
 python -m unittest test_tool_engine.RunToolSecurityTests.test_rate_limit_enforced  # single test
 ```
 
-The test suite is unit/integration only — no live API calls. `test_tool_engine.py` resets loader globals in `setUp` via direct mutation of `loader_module.*` to avoid cross-test contamination.
+The test suite is unit/integration only — no live API calls. `test_tool_engine.py` resets loader globals (`_REGISTRY`, `_LOADED`) in `setUp` via direct mutation of `loader_module.*` to avoid cross-test contamination.
 
 ## Architecture
 
@@ -86,7 +86,7 @@ Cache stats (`cache_creation_tokens`, `cache_read_tokens`) are tracked in `ChatR
 
 **`session_email` parameter contract:** Every `Tool.run()` receives `session_email: str | None` as a keyword argument (injected by `run_tool()`). Protected tools (those in `_PROTECTED_TOOLS` in `loader.py`) are gated: `run_tool()` rejects calls with no valid session before `run()` is ever invoked.
 
-**Security layer in `loader.py`:** `_PROTECTED_TOOLS` lists the tool names that require a verified identity. Sessions have two tiers: `_SESSION_VERIFIED = True` (set only by the OTP flow in `main.py` via `set_session_email(email, verified=True)`) grants access to protected tools; `_SESSION_VERIFIED = False` (set by `SetCustomerIdentity` tool during chat) records the email for lookup/greeting purposes only and does not unlock protected tools. `run_tool()` checks `_is_session_valid()` (which requires `_SESSION_VERIFIED`) and rate-limits (5 calls per session) before dispatching. Every call is appended to `audit.log` with timestamp, identity, tool name, inputs, and outcome.
+**Security layer (`loader.py` + `session.py`):** `_PROTECTED_TOOLS` lists the tool names that require a verified identity. Each session is a `Session` object (`helpbot/tools/engine/session.py`) — not module-level globals. Two tiers: `session.set(email, verified=True)` (set only by the OTP flow in `main.py`) grants access to protected tools; `session.set(email, verified=False)` (set by `SetCustomerIdentity` tool during chat) records the email for lookup/greeting purposes only and does not unlock protected tools. `run_tool()` calls `session.is_valid()` (which requires `verified=True` and a non-expired timestamp) and checks `session.rate_limit_reached()` (5 calls per session) before dispatching. Every call is appended to `audit.log` with timestamp, identity, tool name, inputs, and outcome.
 
 ### Database layer
 
@@ -112,7 +112,7 @@ Tables: `orders`, `return_eligibility`, `refunds`, `books`, `accounts`, `promo_c
 - **Registry-driven dispatch** (`registry.toml`): Intent→tools→temperature mapping lives in TOML, not Python. Keep new intents there.
 - **Auto-discovery** (`loader.py`): `Tool` subclasses self-register via `_all_subclasses()`. Do not maintain a manual list.
 - **Cache safety** (`_call()`): Tool schemas are copied before attaching `cache_control` — never mutate the shared `_REGISTRY` dicts directly.
-- **Conversation cache pointer** (`to_api_format()`): Marks `serialised[-2]`, not the live turn. Handles both `str` and `list` content shapes correctly.
+- **Conversation cache pointer** (`to_api_format()`): Marks the second-to-last **user text message** (skipping tool_use/tool_result turns). Uses an index list of `str`-content user messages, not `serialised[-2]` directly, so the pointer never lands on a tool turn.
 
 ## Dependencies
 

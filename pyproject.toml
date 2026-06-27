@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "anthropic>=0.111.0",
-    "pydantic>=2.13.4",
+    "pydantic[email]>=2.13.4",
     "pydantic-settings>=2.14.2",
     "python-dotenv>=1.2.2",
     "sib-api-v3-sdk>=7.6.0",

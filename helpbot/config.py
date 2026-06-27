@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import Field, field_validator, EmailStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -8,7 +9,7 @@ class Settings(BaseSettings):
     model: str = "claude-haiku-4-5"
     max_tokens: int = Field(default=1000, gt=0)
     brevo_api_key: str = ""
-    sender_email: EmailStr = ""
+    sender_email: Optional[EmailStr] = None
 
     @field_validator("model")
     @classmethod

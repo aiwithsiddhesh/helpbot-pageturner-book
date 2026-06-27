@@ -30,6 +30,16 @@ python eval_intent.py   # run intent classification eval (~43 API calls)
 
 At startup, the bot prompts for email-based OTP verification (requires Brevo credentials). Press Enter to skip and continue as a guest — account-specific tools will prompt for identity when needed.
 
+## Tests
+
+```bash
+python -m unittest discover -s tests           # run all tests
+python -m unittest tests.test_tool_engine      # single file
+python -m unittest tests.test_tool_engine.RunToolSecurityTests.test_rate_limit_enforced  # single test
+```
+
+No live API calls — unit/integration only.
+
 ## How It Works
 
 Every message goes through a three-step pipeline:
@@ -57,7 +67,7 @@ Four layers of caching reduce latency and token costs across a session:
 |---|---|
 | System prompt | `chat.py` — passed as a typed block with `cache_control` |
 | Tool schemas | `chat.py` — `cache_control` appended to the last tool before each call |
-| Conversation prefix | `conversation.py` — second-to-last message marked each turn |
+| Conversation prefix | `conversation.py` — second-to-last user text message marked each turn (tool turns skipped) |
 | Intent classification prompt | `output.py` — static prefix cached; only the customer message is dynamic |
 
 ## Project Structure
@@ -80,6 +90,7 @@ helpbot/
 └── tools/
     ├── engine/
     │   ├── base.py     # Tool ABC — define properties + run()
+    │   ├── session.py  # Session class — verified/unverified tiers, rate counter, 30-min timeout
     │   └── loader.py   # Auto-discovery, session/rate-limit guard, audit logging
     └── tools_catalog/  # One file per domain (books, orders, returns, …)
 eval_intent.py          # Intent classification eval harness (80% pass threshold)

@@ -15,6 +15,12 @@ wheels/
 # Claude
 .claude/
 
+# IDE
+.idea/
+
+# Test cache
+.pytest_cache/
+
 # Generated at runtime
 helpbot/db/helpbot.db
 audit.log
