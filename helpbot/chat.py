@@ -3,7 +3,7 @@ import anthropic
 from helpbot.config import Settings
 from helpbot.prompts import build_system_prompt
 from helpbot.conversation import Conversation
-from helpbot.tools import run_tool
+from helpbot.tools import run_tool, Session
 from helpbot.utils import _with_retry
 
 
@@ -65,6 +65,7 @@ class HelpBot:
     def chat_streaming(
         self,
         conversation: Conversation,
+        session: Session,
         opener: str = "",
         temperature: float = 0.1,
         tools: list[dict] | None = None,
@@ -89,7 +90,7 @@ class HelpBot:
                 tool_results = []
                 for b in final.content:
                     if b.type == "tool_use":
-                        content, is_error = run_tool(b.name, b.input)
+                        content, is_error = run_tool(b.name, b.input, session)
                         tool_results.append({"type": "tool_result", "tool_use_id": b.id, "content": content, "is_error": is_error})
                 conversation.add_tool_results(tool_results)
             else:
