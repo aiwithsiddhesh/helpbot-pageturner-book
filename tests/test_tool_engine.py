@@ -4,15 +4,13 @@ import json
 import unittest
 
 import helpbot.tools.engine.loader as loader_module
-from helpbot.tools.engine.loader import load_schemas, run_tool, set_session_email
+from helpbot.tools.engine.loader import load_schemas, run_tool
+from helpbot.tools.engine.session import Session, _RATE_LIMIT
 
 
 def _reset_loader():
     loader_module._REGISTRY.clear()
     loader_module._LOADED = False
-    loader_module._SESSION_EMAIL = None
-    loader_module._SESSION_TIMESTAMP = None
-    loader_module._RATE_COUNTER = 0
 
 
 class LoadSchemasTests(unittest.TestCase):
@@ -54,38 +52,69 @@ class RunToolSecurityTests(unittest.TestCase):
         load_schemas(["check_order_status"])  # trigger load
 
     def test_protected_tool_blocked_without_session(self) -> None:
-        result_json, is_error = run_tool("check_order_status", {"order_id": "PT-1001"})
+        session = Session()
+        result_json, is_error = run_tool("check_order_status", {"order_id": "PT-1001"}, session)
         result = json.loads(result_json)
         self.assertTrue(result.get("needs_identity"))
         self.assertFalse(is_error)
 
     def test_protected_tool_allowed_with_session(self) -> None:
-        set_session_email("john.doe@example.com", verified=True)
-        result_json, is_error = run_tool("check_order_status", {"order_id": "PT-1001"})
+        session = Session()
+        session.set("john.doe@example.com", verified=True)
+        result_json, is_error = run_tool("check_order_status", {"order_id": "PT-1001"}, session)
         result = json.loads(result_json)
         self.assertNotIn("needs_identity", result)
 
     def test_protected_tool_blocked_with_unverified_session(self) -> None:
-        set_session_email("john.doe@example.com", verified=False)
-        result_json, is_error = run_tool("check_order_status", {"order_id": "PT-1001"})
+        session = Session()
+        session.set("john.doe@example.com", verified=False)
+        result_json, is_error = run_tool("check_order_status", {"order_id": "PT-1001"}, session)
         result = json.loads(result_json)
         self.assertTrue(result.get("needs_identity"))
         self.assertFalse(is_error)
 
     def test_rate_limit_enforced(self) -> None:
-        set_session_email("john.doe@example.com", verified=True)
-        for _ in range(loader_module._RATE_LIMIT):
-            run_tool("check_order_status", {"order_id": "PT-1001"})
-        result_json, is_error = run_tool("check_order_status", {"order_id": "PT-1001"})
+        session = Session()
+        session.set("john.doe@example.com", verified=True)
+        for _ in range(_RATE_LIMIT):
+            run_tool("check_order_status", {"order_id": "PT-1001"}, session)
+        result_json, is_error = run_tool("check_order_status", {"order_id": "PT-1001"}, session)
         result = json.loads(result_json)
         self.assertTrue(result.get("error"))
         self.assertTrue(is_error)
 
     def test_unprotected_tool_runs_without_session(self) -> None:
-        result_json, is_error = run_tool("validate_promo_code", {"code": "SUMMER20"})
+        session = Session()
+        result_json, is_error = run_tool("validate_promo_code", {"code": "SUMMER20"}, session)
         result = json.loads(result_json)
         self.assertTrue(result.get("found"))
         self.assertFalse(is_error)
+
+    def test_two_sessions_are_independent(self) -> None:
+        session_a = Session()
+        session_b = Session()
+        session_a.set("alice@example.com", verified=True)
+        # B is unverified — should be blocked
+        result_json, _ = run_tool("check_order_status", {"order_id": "PT-1001"}, session_b)
+        result = json.loads(result_json)
+        self.assertTrue(result.get("needs_identity"))
+        # A should still be valid and unaffected
+        self.assertTrue(session_a.is_valid())
+        self.assertEqual(session_a.email, "alice@example.com")
+
+    def test_rate_limit_is_per_session(self) -> None:
+        session_a = Session()
+        session_b = Session()
+        session_a.set("alice@example.com", verified=True)
+        session_b.set("bob@example.com", verified=True)
+        for _ in range(_RATE_LIMIT):
+            run_tool("check_order_status", {"order_id": "PT-1001"}, session_a)
+        # A is rate-limited
+        result_json, _ = run_tool("check_order_status", {"order_id": "PT-1001"}, session_a)
+        self.assertTrue(json.loads(result_json).get("error"))
+        # B is unaffected
+        result_json_b, _ = run_tool("check_order_status", {"order_id": "PT-1001"}, session_b)
+        self.assertNotIn("error", json.loads(result_json_b))
 
 
 if __name__ == "__main__":

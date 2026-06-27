@@ -10,7 +10,7 @@ from helpbot import (
     detect_intent,
     INTENT_REGISTRY,
 )
-from helpbot.tools import load_schemas, set_session_email
+from helpbot.tools import load_schemas, Session
 from helpbot.chat import ChatResult
 from helpbot.otp import generate_otp, send_otp
 
@@ -49,7 +49,7 @@ class SessionStats:
         print("─────────────────────────────────────────────────────")
 
 
-def _run_otp_flow(settings: Settings) -> None:
+def _run_otp_flow(settings: Settings, session: Session) -> None:
     email = input("Enter your email to verify identity (or press Enter to skip): ").strip()
     if not email:
         print("Continuing as guest. Some features will require identity verification.")
@@ -70,7 +70,7 @@ def _run_otp_flow(settings: Settings) -> None:
             print("Code has expired. Continuing as guest.")
             return
         if code == otp:
-            set_session_email(email, verified=True)
+            session.set(email, verified=True)
             print("Identity verified.")
             return
         remaining = 2 - attempt
@@ -80,13 +80,13 @@ def _run_otp_flow(settings: Settings) -> None:
     print("Too many failed attempts. Continuing as guest.")
 
 
-def _bootstrap() -> tuple[HelpBot, Conversation]:
+def _bootstrap() -> tuple[HelpBot, Conversation, Session]:
     try:
         settings = Settings()
     except ValidationError:
         sys.exit("Error: ANTHROPIC_API_KEY is not set. Copy .env.example to .env and add your key.")
     client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-    return HelpBot(settings=settings, client=client), Conversation()
+    return HelpBot(settings=settings, client=client), Conversation(), Session()
 
 
 def _handle_command(user_input: str) -> bool:
@@ -103,6 +103,7 @@ def _handle_message(
     user_input: str,
     bot: HelpBot,
     conversation: Conversation,
+    session: Session,
 ) -> ChatResult:
     intent = detect_intent(user_input, bot.settings, bot.client)
     temperature = INTENT_REGISTRY[intent].get("temperature", 0.1)
@@ -111,7 +112,7 @@ def _handle_message(
     conversation.add_user(user_input)
     print("HelpBot: ", end="", flush=True)
     opener = _INTENT_OPENERS.get(intent, "")
-    result = bot.chat_streaming(conversation, opener=opener, temperature=temperature, tools=tools, intent=intent)
+    result = bot.chat_streaming(conversation, session, opener=opener, temperature=temperature, tools=tools, intent=intent)
     total_calls = result.api_calls + 1  # +1 for detect_intent()
     cache_info = f", Cache Created: {result.cache_creation_tokens}, Cache Read: {result.cache_read_tokens}" if (result.cache_creation_tokens or result.cache_read_tokens) else ""
     print(f"(API Calls: {total_calls} | Input Tokens: {result.input_tokens}, Output Tokens: {result.output_tokens}, Total Tokens: {result.total_tokens}{cache_info})\n")
@@ -119,11 +120,11 @@ def _handle_message(
 
 
 def main() -> None:
-    bot, conversation = _bootstrap()
+    bot, conversation, session = _bootstrap()
     stats = SessionStats()
 
     print("Welcome to HelpBot! Type 'exit' to quit.")
-    _run_otp_flow(bot.settings)
+    _run_otp_flow(bot.settings, session)
     while True:
         user_input = input("You: ").strip()
 
@@ -131,7 +132,7 @@ def main() -> None:
             break
 
         if user_input:
-            result = _handle_message(user_input, bot, conversation)
+            result = _handle_message(user_input, bot, conversation, session)
             stats.add(result, extra_calls=1)  # +1 for detect_intent()
 
     stats.print_summary()

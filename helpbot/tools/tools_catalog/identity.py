@@ -1,5 +1,4 @@
 from helpbot.tools.engine.base import Tool
-from helpbot.tools.engine.loader import set_session_email
 
 
 class SetCustomerIdentity(Tool):
@@ -9,6 +8,10 @@ class SetCustomerIdentity(Tool):
     }
 
     def run(self, email: str, session_email: str | None = None) -> dict:
-        # verified=False — only the OTP flow in main.py may grant a verified session
-        set_session_email(email, verified=False)
-        return {"success": True, "message": f"Email recorded as {email}. Note: to access protected account data, identity must be verified via the email OTP sent at session start."}
+        # verified=False — only the OTP flow in main.py may grant a verified session.
+        # _email is picked up by run_tool() to update the session without a global setter.
+        return {
+            "success": True,
+            "_email": email,
+            "message": f"Email recorded as {email}. Note: to access protected account data, identity must be verified via the email OTP sent at session start.",
+        }
